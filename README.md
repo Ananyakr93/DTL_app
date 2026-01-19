@@ -113,26 +113,21 @@ docker build -t aeroclean .
 docker run -p 5000:5000 -e AQICN_TOKEN=your_token aeroclean
 ```
 
-## ▲ Vercel Deployment
+## ☁️ Render.com Deployment
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/DTL)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
 ### Manual Setup
 
-1. Install Vercel CLI:
-   ```bash
-   npm i -g vercel
-   ```
-
-2. Deploy:
-   ```bash
-   vercel
-   ```
-
-3. Set environment variable in Vercel dashboard:
+1. Push code to GitHub
+2. Go to [render.com](https://render.com) → New → Web Service
+3. Connect your GitHub repository
+4. Render auto-detects `render.yaml` configuration
+5. Add environment variable:
    - `AQICN_TOKEN` = your token from [aqicn.org](https://aqicn.org/api/)
+6. Deploy!
 
-> **Note:** WebSockets and persistent database features are disabled on Vercel (serverless limitation).
+> **Render supports:** TensorFlow, WebSockets, persistent storage, and no cold starts.
 
 ## 📜 License
 
