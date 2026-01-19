@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroClean - AQI Dashboard</title>
+    <meta name="description" content="Real-time air quality monitoring and 24-hour AQI predictions for Indian cities">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="dashboard">
+        <aside class="sidebar">
+            <h2 class="logo">🌿 AeroClean</h2>
+            <ul>
+                <li class="active">
+                    <span class="icon">📊</span>
+                    <span>Dashboard</span>
+                </li>
+                <li onclick="location.href='analytics.html'">
+                    <span class="icon">📈</span>
+                    <span>Analytics</span>
+                </li>
+                <li onclick="location.href='devices.html'">
+                    <span class="icon">📡</span>
+                    <span>Devices</span>
+                </li>
+                <li onclick="location.href='reports.html'">
+                    <span class="icon">📑</span>
+                    <span>Reports</span>
+                </li>
+                <li onclick="location.href='settings.html'">
+                    <span class="icon">⚙️</span>
+                    <span>Settings</span>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div class="search-box">
+                    <input type="text" id="citySearch" placeholder="🔍 Search city..." value="" aria-label="Search city"
+                        list="city-suggestions" autocomplete="off">
+                    <datalist id="city-suggestions"></datalist>
+                    <button onclick="searchCity()" aria-label="Search">Search</button>
+                    <button id="locateBtn" onclick="detectLocation()" aria-label="Use my location"
+                        style="margin-left: 5px;" title="Use current location">📍</button>
+                </div>
+                <div class="top-info">
+                    <span id="updateTime">Loading...</span>
+                    <span id="refreshTimer" class="timer">Auto-refresh: 5:00</span>
+                </div>
+            </header>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="loading-indicator">
+                <div class="spinner"></div>
+                <p>Loading air quality data...</p>
+            </div>
+
+            <!-- Main Content -->
+            <div id="mainContent" style="display: none;">
+                <!-- Data Source Indicator -->
+                <div class="data-source-badge" id="dataSourceBadge">
+                    <span class="source-icon">📡</span>
+                    <span id="dataSource">Loading...</span>
+                </div>
+
+                <section class="cards">
+                    <div class="card" id="aqiCard">
+                        <div class="card-header">
+                            <h3>Current AQI</h3>
+                            <span class="icon">🌡️</span>
+                        </div>
+                        <p class="value" id="aqiValue">--</p>
+                        <span class="status-badge" id="aqiStatus">--</span>
+                    </div>
+
+                    <div class="card moderate">
+                        <div class="card-header">
+                            <h3>PM2.5</h3>
+                            <span class="icon">💨</span>
+                        </div>
+                        <p class="value" id="pm25">--</p>
+                        <span class="unit">µg/m³</span>
+                    </div>
+
+                    <div class="card poor">
+                        <div class="card-header">
+                            <h3>PM10</h3>
+                            <span class="icon">🌫️</span>
+                        </div>
+                        <p class="value" id="pm10">--</p>
+                        <span class="unit">µg/m³</span>
+                    </div>
+
+                    <div class="card unhealthy">
+                        <div class="card-header">
+                            <h3>NO₂</h3>
+                            <span class="icon">🏭</span>
+                        </div>
+                        <p class="value" id="no2">--</p>
+                        <span class="unit">µg/m³</span>
+                    </div>
+                </section>
+
+                <!-- Additional Pollutants -->
+                <section class="additional-metrics">
+                    <div class="metric-item">
+                        <span class="metric-label">SO₂</span>
+                        <span class="metric-value" id="so2">--</span>
+                        <span class="metric-unit">µg/m³</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">CO</span>
+                        <span class="metric-value" id="co">--</span>
+                        <span class="metric-unit">µg/m³</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">O₃</span>
+                        <span class="metric-value" id="o3">--</span>
+                        <span class="metric-unit">µg/m³</span>
+                    </div>
+                </section>
+
+                <!-- Health Recommendations -->
+                <section class="health-section">
+                    <h2>🏥 Health Recommendations</h2>
+                    <div class="health-cards">
+                        <div class="health-card">
+                            <h4>General Population</h4>
+                            <p id="healthGeneral">--</p>
+                        </div>
+                        <div class="health-card sensitive">
+                            <h4>Sensitive Groups</h4>
+                            <p id="healthSensitive">--</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Prediction Section - UPDATED FOR 24 HOURS -->
+                <section class="prediction">
+                    <div class="prediction-header">
+                        <h2>🔮 AQI Prediction (Next 24 Hours)</h2>
+                        <div class="scenario-selector">
+                            <label for="scenarioSelect">Scenario:</label>
+                            <select id="scenarioSelect" onchange="loadPrediction()">
+                                <option value="normal">Normal</option>
+                                <option value="high_traffic">High Traffic (+30%)</option>
+                                <option value="industrial">Industrial (+50%)</option>
+                                <option value="weather_event">Rain (-30%)</option>
+                                <option value="diwali">Festival (2x)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="prediction-container">
+                        <div class="prediction-legend">
+                            <span class="legend-item"><span class="legend-color"
+                                    style="background: var(--color-good)"></span> Good (0-50)</span>
+                            <span class="legend-item"><span class="legend-color"
+                                    style="background: var(--color-moderate)"></span> Satisfactory (51-100)</span>
+                            <span class="legend-item"><span class="legend-color"
+                                    style="background: var(--color-poor)"></span> Moderate (101-200)</span>
+                            <span class="legend-item"><span class="legend-color"
+                                    style="background: var(--color-unhealthy)"></span> Poor (201-300)</span>
+                            <span class="legend-item"><span class="legend-color"
+                                    style="background: var(--color-severe)"></span> Severe (300+)</span>
+                        </div>
+                        <div class="prediction-bars" id="predictionBars">
+                            <!-- Prediction bars will be inserted here -->
+                        </div>
+                        <p class="uncertainty-note">
+                            <span class="info-icon">ℹ️</span>
+                            Shaded areas show prediction uncertainty (±confidence interval)
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Activity Recommendations -->
+                <section class="activity">
+                    <h2>🏃 Activity Recommendations</h2>
+                    <div class="activity-cards" id="activityCards">
+                        <!-- Activity cards will be inserted here -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
