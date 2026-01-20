@@ -59,15 +59,30 @@ cache = Cache(app, config={
 })
 
 # ===================== API CONFIG =====================
-# AQICN API for real-time current AQI (accurate India data)
-AQICN_TOKEN = os.getenv("AQICN_TOKEN", "91cfb794c918bbc8fed384ff6aab22383dec190a")  # Replace 'demo' with actual token
+# AQICN API for real-time current AQI (fallback for international cities)
+AQICN_TOKEN = os.getenv("AQICN_TOKEN", "91cfb794c918bbc8fed384ff6aab22383dec190a")
 AQICN_URL = "https://api.waqi.info/feed"
+
+# CPCB API for official Indian AQI data (primary for Indian cities)
+CPCB_API_URL = "https://api.data.gov.in/resource/3b01bcb8-0b14-4abf-b6f2-c1bfd384ba69"
+CPCB_API_KEY = os.getenv("CPCB_API_KEY", "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b")
 
 # Open-Meteo API for predictions (free, no key needed)
 OPENMETEO_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 
 # Geocoding API (free)
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
+
+# Indian cities for CPCB API prioritization
+INDIAN_CITIES = [
+    'bangalore', 'bengaluru', 'delhi', 'new delhi', 'mumbai', 'chennai', 'kolkata', 
+    'hyderabad', 'pune', 'ahmedabad', 'jaipur', 'lucknow', 'kanpur', 'nagpur',
+    'indore', 'thane', 'bhopal', 'visakhapatnam', 'patna', 'vadodara', 'ghaziabad',
+    'ludhiana', 'agra', 'nashik', 'faridabad', 'meerut', 'rajkot', 'varanasi',
+    'srinagar', 'aurangabad', 'dhanbad', 'amritsar', 'allahabad', 'ranchi', 'howrah',
+    'coimbatore', 'gwalior', 'vijayawada', 'jodhpur', 'madurai', 'raipur', 'kota',
+    'chandigarh', 'guwahati', 'solapur', 'hubli', 'mysore', 'tiruchirappalli', 'bareilly'
+]
 
 # ===================== DATABASE SETUP =====================
 # On Vercel, use /tmp directory (ephemeral storage)
@@ -292,12 +307,91 @@ def get_coordinates(city):
     except Exception as e:
         raise ValueError(f"Geocoding error: {str(e)}")
 
-# ===================== AQICN API (Real-time Current AQI) =====================
+# ===================== CPCB API (Official Indian AQI - Primary for India) =====================
+@cache.memoize(timeout=300)  # Cache for 5 minutes
+def fetch_cpcb_data(city):
+    """Fetch official Indian AQI data from CPCB API (data.gov.in)"""
+    try:
+        # Map common city names to CPCB station search terms
+        city_mapping = {
+            'bangalore': 'Bengaluru',
+            'bengaluru': 'Bengaluru',
+            'delhi': 'Delhi',
+            'new delhi': 'Delhi',
+            'mumbai': 'Mumbai',
+            'chennai': 'Chennai',
+            'kolkata': 'Kolkata',
+            'hyderabad': 'Hyderabad',
+        }
+        search_city = city_mapping.get(city.lower(), city.title())
+        
+        params = {
+            'api-key': CPCB_API_KEY,
+            'format': 'json',
+            'limit': 10,
+            'filters[city]': search_city
+        }
+        
+        res = requests.get(CPCB_API_URL, params=params, timeout=15)
+        data = res.json()
+        
+        if data.get('status') == 'ok' and data.get('records'):
+            records = data['records']
+            if len(records) > 0:
+                # Get the most recent record
+                record = records[0]
+                
+                # Extract pollutant values
+                pm25 = float(record.get('pollutant_avg', 0)) if record.get('pollutant_id') == 'PM2.5' else 0
+                pm10 = float(record.get('pollutant_avg', 0)) if record.get('pollutant_id') == 'PM10' else 0
+                
+                # Try to get multiple pollutant values from different records
+                pollutants = {'pm25': 0, 'pm10': 0, 'no2': 0, 'so2': 0, 'co': 0, 'o3': 0}
+                for rec in records:
+                    pollutant_id = rec.get('pollutant_id', '').lower().replace('.', '')
+                    avg_value = float(rec.get('pollutant_avg', 0) or 0)
+                    
+                    if 'pm25' in pollutant_id or pollutant_id == 'pm2.5':
+                        pollutants['pm25'] = max(pollutants['pm25'], avg_value)
+                    elif 'pm10' in pollutant_id:
+                        pollutants['pm10'] = max(pollutants['pm10'], avg_value)
+                    elif 'no2' in pollutant_id:
+                        pollutants['no2'] = max(pollutants['no2'], avg_value)
+                    elif 'so2' in pollutant_id:
+                        pollutants['so2'] = max(pollutants['so2'], avg_value)
+                    elif 'co' in pollutant_id:
+                        pollutants['co'] = max(pollutants['co'], avg_value)
+                    elif 'o3' in pollutant_id or 'ozone' in pollutant_id:
+                        pollutants['o3'] = max(pollutants['o3'], avg_value)
+                
+                # Calculate Indian AQI from pollutant values
+                aqi_pm25 = calculate_indian_aqi_pm25(pollutants['pm25'])
+                aqi_pm10 = calculate_indian_aqi_pm10(pollutants['pm10'])
+                aqi_value = max(aqi_pm25, aqi_pm10)  # Indian AQI is max of sub-indices
+                
+                station_name = record.get('station', search_city)
+                
+                return {
+                    "aqi_value": aqi_value,
+                    "pm2_5": round(pollutants['pm25'], 1),
+                    "pm10": round(pollutants['pm10'], 1),
+                    "no2": round(pollutants['no2'], 1),
+                    "so2": round(pollutants['so2'], 1),
+                    "co": round(pollutants['co'], 1),
+                    "o3": round(pollutants['o3'], 1),
+                    "source": "cpcb",
+                    "station": station_name
+                }
+        return None
+    except Exception as e:
+        print(f"CPCB API error: {e}")
+        return None
+
+# ===================== AQICN API (Fallback - Recalculated to Indian AQI) =====================
 @cache.memoize(timeout=300)  # Cache for 5 minutes
 def fetch_aqicn_current(city):
-    """Fetch real-time current AQI from AQICN API"""
+    """Fetch AQI from AQICN API and recalculate using Indian CPCB standards"""
     try:
-        # Try city name directly
         url = f"{AQICN_URL}/{city}/?token={AQICN_TOKEN}"
         res = requests.get(url, timeout=10)
         data = res.json()
@@ -306,14 +400,27 @@ def fetch_aqicn_current(city):
             aqi_data = data["data"]
             iaqi = aqi_data.get("iaqi", {})
             
+            # Get raw pollutant concentrations
+            pm25 = iaqi.get("pm25", {}).get("v", 0) or 0
+            pm10 = iaqi.get("pm10", {}).get("v", 0) or 0
+            no2 = iaqi.get("no2", {}).get("v", 0) or 0
+            so2 = iaqi.get("so2", {}).get("v", 0) or 0
+            co = iaqi.get("co", {}).get("v", 0) or 0
+            o3 = iaqi.get("o3", {}).get("v", 0) or 0
+            
+            # Recalculate AQI using Indian CPCB standards
+            aqi_pm25 = calculate_indian_aqi_pm25(pm25)
+            aqi_pm10 = calculate_indian_aqi_pm10(pm10)
+            aqi_value = max(aqi_pm25, aqi_pm10)  # Indian AQI is max of sub-indices
+            
             return {
-                "aqi_value": aqi_data.get("aqi", 0),
-                "pm2_5": iaqi.get("pm25", {}).get("v", 0),
-                "pm10": iaqi.get("pm10", {}).get("v", 0),
-                "no2": iaqi.get("no2", {}).get("v", 0),
-                "so2": iaqi.get("so2", {}).get("v", 0),
-                "co": iaqi.get("co", {}).get("v", 0),
-                "o3": iaqi.get("o3", {}).get("v", 0),
+                "aqi_value": aqi_value,
+                "pm2_5": pm25,
+                "pm10": pm10,
+                "no2": no2,
+                "so2": so2,
+                "co": co,
+                "o3": o3,
                 "source": "aqicn",
                 "station": aqi_data.get("city", {}).get("name", city)
             }
@@ -323,7 +430,7 @@ def fetch_aqicn_current(city):
         return None
 
 def fetch_aqicn_by_coords(lat, lon):
-    """Fetch AQICN data by coordinates"""
+    """Fetch AQICN data by coordinates and recalculate using Indian CPCB standards"""
     try:
         url = f"{AQICN_URL}/geo:{lat};{lon}/?token={AQICN_TOKEN}"
         res = requests.get(url, timeout=10)
@@ -333,14 +440,27 @@ def fetch_aqicn_by_coords(lat, lon):
             aqi_data = data["data"]
             iaqi = aqi_data.get("iaqi", {})
             
+            # Get raw pollutant concentrations
+            pm25 = iaqi.get("pm25", {}).get("v", 0) or 0
+            pm10 = iaqi.get("pm10", {}).get("v", 0) or 0
+            no2 = iaqi.get("no2", {}).get("v", 0) or 0
+            so2 = iaqi.get("so2", {}).get("v", 0) or 0
+            co = iaqi.get("co", {}).get("v", 0) or 0
+            o3 = iaqi.get("o3", {}).get("v", 0) or 0
+            
+            # Recalculate AQI using Indian CPCB standards
+            aqi_pm25 = calculate_indian_aqi_pm25(pm25)
+            aqi_pm10 = calculate_indian_aqi_pm10(pm10)
+            aqi_value = max(aqi_pm25, aqi_pm10)
+            
             return {
-                "aqi_value": aqi_data.get("aqi", 0),
-                "pm2_5": iaqi.get("pm25", {}).get("v", 0),
-                "pm10": iaqi.get("pm10", {}).get("v", 0),
-                "no2": iaqi.get("no2", {}).get("v", 0),
-                "so2": iaqi.get("so2", {}).get("v", 0),
-                "co": iaqi.get("co", {}).get("v", 0),
-                "o3": iaqi.get("o3", {}).get("v", 0),
+                "aqi_value": aqi_value,
+                "pm2_5": pm25,
+                "pm10": pm10,
+                "no2": no2,
+                "so2": so2,
+                "co": co,
+                "o3": o3,
                 "source": "aqicn"
             }
         return None
@@ -866,47 +986,64 @@ def predict_with_scenario(base_predictions, scenario):
 
 @app.route("/api/current")
 def current():
-    """Get current AQI using AQICN (primary) with Open-Meteo fallback"""
+    """Get current AQI using CPCB (primary for India) with AQICN fallback"""
     try:
         city = request.args.get("city", "Bangalore")
         lat = request.args.get("lat")
         lon = request.args.get("lon")
         
-        aqicn_data = None
+        aqi_data = None
+        is_indian_city = city.lower() in INDIAN_CITIES or city.lower().endswith('india')
         
-        # 1. If lat/lon provided, use them directly
+        # 1. If lat/lon provided, try to determine if it's in India (rough bounds)
         if lat and lon:
-            aqicn_data = fetch_aqicn_by_coords(lat, lon)
-            if not aqicn_data:
-                aqicn_data = fetch_openmeteo_current(float(lat), float(lon))
-                if aqicn_data: 
-                    aqicn_data["source"] = "open-meteo"
+            lat_f, lon_f = float(lat), float(lon)
+            # Check if coordinates are within India (rough bounding box)
+            is_india_coords = (6.5 <= lat_f <= 37.0 and 68.0 <= lon_f <= 97.5)
             
-            # If we used coordinates, we might want to resolve the city name for display
-            # But strictly speaking, the frontend just needs data. 
-            # We can default city to "Current Location" if not provided or resolved elsewhere.
+            if is_india_coords:
+                # Try CPCB first for Indian coordinates
+                # Note: CPCB API needs city name, so we'll use AQICN with recalculated AQI
+                aqi_data = fetch_aqicn_by_coords(lat, lon)
+            else:
+                aqi_data = fetch_aqicn_by_coords(lat, lon)
+            
+            if not aqi_data:
+                aqi_data = fetch_openmeteo_current(lat_f, lon_f)
+                if aqi_data: 
+                    aqi_data["source"] = "open-meteo"
+            
             if not city or city == "Bangalore":
                 city = "Current Location"
 
-        # 2. If no data yet (or no coords), try by City Name
-        if not aqicn_data:
-            # Get current data from AQICN first
-            aqicn_data = fetch_aqicn_current(city)
+        # 2. If no data yet, try by city name
+        if not aqi_data:
+            # For Indian cities, try CPCB API first (official Indian AQI)
+            if is_indian_city:
+                aqi_data = fetch_cpcb_data(city)
+                if aqi_data:
+                    print(f"✅ Using CPCB data for {city}")
+            
+            # Fallback to AQICN (recalculated to Indian AQI)
+            if not aqi_data:
+                aqi_data = fetch_aqicn_current(city)
+                if aqi_data:
+                    print(f"📡 Using AQICN data for {city} (recalculated to Indian AQI)")
             
             # If AQICN fails, try by coordinates
-            if not aqicn_data:
+            if not aqi_data:
                 coords = get_coordinates(city)
-                aqicn_data = fetch_aqicn_by_coords(coords["lat"], coords["lon"])
+                aqi_data = fetch_aqicn_by_coords(coords["lat"], coords["lon"])
             
-            # Fallback to Open-Meteo if AQICN fails
-            if not aqicn_data:
+            # Final fallback to Open-Meteo
+            if not aqi_data:
                 coords = get_coordinates(city)
-                aqicn_data = fetch_openmeteo_current(coords["lat"], coords["lon"])
+                aqi_data = fetch_openmeteo_current(coords["lat"], coords["lon"])
         
-        if not aqicn_data:
+        if not aqi_data:
             return jsonify({"error": "Unable to fetch air quality data"}), 500
         
-        aqi_value = aqicn_data["aqi_value"]
+        aqi_value = aqi_data["aqi_value"]
         health = get_health_recommendations(aqi_value)
 
         return jsonify({
@@ -915,14 +1052,14 @@ def current():
                 "aqi_value": aqi_value,
                 "aqi_status": get_aqi_status(aqi_value),
                 "aqi_color": get_aqi_color(aqi_value),
-                "pm2_5": aqicn_data.get("pm2_5", 0),
-                "pm10": aqicn_data.get("pm10", 0),
-                "no2": aqicn_data.get("no2", 0),
-                "so2": aqicn_data.get("so2", 0),
-                "co": aqicn_data.get("co", 0),
-                "o3": aqicn_data.get("o3", 0),
+                "pm2_5": aqi_data.get("pm2_5", 0),
+                "pm10": aqi_data.get("pm10", 0),
+                "no2": aqi_data.get("no2", 0),
+                "so2": aqi_data.get("so2", 0),
+                "co": aqi_data.get("co", 0),
+                "o3": aqi_data.get("o3", 0),
                 "time": datetime.now().strftime("%H:%M"),
-                "source": aqicn_data.get("source", "unknown")
+                "source": aqi_data.get("source", "unknown")
             },
             "activities": get_activity_recommendations(aqi_value),
             "health": health
@@ -988,6 +1125,8 @@ def predict():
 def forecast():
     """Public API endpoint for forecasts"""
     return predict()
+
+
 
 @app.route("/api/explain")
 def explain():
