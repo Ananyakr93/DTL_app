@@ -1399,51 +1399,53 @@ def health():
     })
 
 # ===================== REAL-TIME WEBSOCKETS =====================
-@socketio.on('connect')
-def handle_connect():
-    print('🔌 Client connected')
+# Only define WebSocket handlers if socketio is available
+if socketio is not None:
+    @socketio.on('connect')
+    def handle_connect():
+        print('🔌 Client connected')
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    print('🔌 Client disconnected')
+    @socketio.on('disconnect')
+    def handle_disconnect():
+        print('🔌 Client disconnected')
 
-@socketio.on('join')
-def on_join(data):
-    city = data.get('city')
-    if city:
-        join_room(city)
-        print(f'👤 Client joined room: {city}')
-        # Emit immediate update
-        aqi_data = fetch_aqicn_current(city)
-        if aqi_data:
-            emit('aqi_update', aqi_data, to=city)
+    @socketio.on('join')
+    def on_join(data):
+        city = data.get('city')
+        if city:
+            join_room(city)
+            print(f'👤 Client joined room: {city}')
+            # Emit immediate update
+            aqi_data = fetch_aqicn_current(city)
+            if aqi_data:
+                emit('aqi_update', aqi_data, to=city)
 
-def background_polling():
-    """Poll AQI data periodically and push updates"""
-    print("🔄 Starting background polling service...")
-    while True:
-        try:
-            # In a real app, we would track which cities have active subscribers
-            # For demo, we just poll Bangalore + user's last searched cities
-            cities_to_poll = ["Bangalore", "Delhi", "Mumbai"]
-            
-            for city in cities_to_poll:
-                # Bypass cache to get fresh real-time check
-                # (In production, use a more efficient strategy)
-                data = fetch_aqicn_current(city)
-                if data:
-                    timestamp = datetime.now().isoformat()
-                    # Add timestamp to data
-                    data['push_timestamp'] = timestamp
-                    socketio.emit('aqi_update', data, to=city)
-            
-            socketio.sleep(60)  # Poll every minute
-        except Exception as e:
-            print(f"Polling error: {e}")
-            if socketio:
-                socketio.sleep(60)
-            else:
-                time.sleep(60)
+    def background_polling():
+        """Poll AQI data periodically and push updates"""
+        print("🔄 Starting background polling service...")
+        while True:
+            try:
+                # In a real app, we would track which cities have active subscribers
+                # For demo, we just poll Bangalore + user's last searched cities
+                cities_to_poll = ["Bangalore", "Delhi", "Mumbai"]
+                
+                for city in cities_to_poll:
+                    # Bypass cache to get fresh real-time check
+                    # (In production, use a more efficient strategy)
+                    data = fetch_aqicn_current(city)
+                    if data:
+                        timestamp = datetime.now().isoformat()
+                        # Add timestamp to data
+                        data['push_timestamp'] = timestamp
+                        socketio.emit('aqi_update', data, to=city)
+                
+                socketio.sleep(60)  # Poll every minute
+            except Exception as e:
+                print(f"Polling error: {e}")
+                if socketio:
+                    socketio.sleep(60)
+                else:
+                    time.sleep(60)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
