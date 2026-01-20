@@ -1,24 +1,33 @@
-const API_BASE = "http://127.0.0.1:5000";
+const API_BASE = "";  // Use relative URLs for deployment compatibility
 
 let currentCity = "Bangalore";
 let refreshInterval;
 let countdownInterval;
 let remainingSeconds = 300; // 5 minutes
 
-// Initialize Socket.IO
-const socket = io(API_BASE);
+// Initialize Socket.IO (optional - only if available)
+let socket = null;
+try {
+    if (typeof io !== 'undefined') {
+        socket = io(window.location.origin);
 
-socket.on('connect', () => {
-    console.log("CONNECTED to WebSocket! ⚡");
-    if (currentCity) {
-        socket.emit('join', { city: currentCity });
+        socket.on('connect', () => {
+            console.log("CONNECTED to WebSocket! ⚡");
+            if (currentCity) {
+                socket.emit('join', { city: currentCity });
+            }
+        });
+
+        socket.on('aqi_update', (data) => {
+            console.log("🔴 Real-time update received!", data);
+            updateUI(data);
+        });
+    } else {
+        console.log("ℹ️ Socket.IO not available - using polling mode");
     }
-});
-
-socket.on('aqi_update', (data) => {
-    console.log("🔴 Real-time update received!", data);
-    updateUI(data);
-});
+} catch (e) {
+    console.log("ℹ️ WebSocket not available:", e.message);
+}
 
 // Separate UI update logic from fetch logic
 function updateUI(data) {
@@ -40,7 +49,7 @@ function updateUI(data) {
 
     // Updated Time
     const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    document.getElementById("lastUpdated").innerText = `📍 ${data.city} | Live Update: ${now}`;
+    document.getElementById("updateTime").innerText = `📍 ${data.city} | Live Update: ${now}`;
 }
 
 /* ================= UTILITY FUNCTIONS ================= */
@@ -104,7 +113,7 @@ async function loadCurrentAQI(lat = null, lon = null) {
             }
 
             // Join WebSocket room for this city
-            if (window.socket) {
+            if (socket) {
                 socket.emit('join', { city: currentCity });
             }
         }
