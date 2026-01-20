@@ -114,13 +114,32 @@ def init_db():
 
 init_db()
 
-# ===================== LOAD IMPROVED LSTM MODEL =====================
+# ===================== LAZY LOAD IMPROVED LSTM MODEL =====================
+# Model is loaded lazily on first prediction request to avoid blocking startup
 MODEL_LOADED = False
 model = None
 scaler = None
 config = {'lookback': 48, 'forecast_horizon': 24, 'n_features': 1}
+_model_loading = False  # Prevents concurrent load attempts
 
-if TF_AVAILABLE:
+def get_model():
+    """Lazy load the LSTM model on first use"""
+    global MODEL_LOADED, model, scaler, config, _model_loading
+    
+    if MODEL_LOADED:
+        return model, scaler, config
+    
+    if not TF_AVAILABLE:
+        print("⚠️ TensorFlow not available - using API-based predictions only")
+        return None, None, config
+    
+    if _model_loading:
+        # Another thread is loading, wait briefly
+        import time
+        time.sleep(0.5)
+        return model, scaler, config
+    
+    _model_loading = True
     try:
         from tensorflow.keras.layers import Dropout
         from tensorflow.keras.saving import register_keras_serializable
@@ -140,8 +159,10 @@ if TF_AVAILABLE:
     except Exception as e:
         print(f"⚠️ Model not found: {e}")
         print("   Using fallback prediction methods")
-else:
-    print("⚠️ TensorFlow not available - using API-based predictions only")
+    finally:
+        _model_loading = False
+    
+    return model, scaler, config
 
 # ===================== HELPER FUNCTIONS =====================
 def get_aqi_status(aqi):
@@ -733,12 +754,15 @@ def predict_with_lstm_uncertainty(current_aqi, lat=None, lon=None, n_samples=10)
     """
     Enhanced LSTM prediction with Monte Carlo Dropout for uncertainty
     """
-    if not MODEL_LOADED:
+    # Lazy load model
+    loaded_model, loaded_scaler, loaded_config = get_model()
+    
+    if loaded_model is None:
         return None
     
     try:
-        lookback = config['lookback']
-        n_features = config['n_features']
+        lookback = loaded_config['lookback']
+        n_features = loaded_config['n_features']
         
         # Create synthetic sequence based on current AQI
         base_variation = np.random.normal(0, 3, lookback)
@@ -759,14 +783,14 @@ def predict_with_lstm_uncertainty(current_aqi, lat=None, lon=None, n_samples=10)
                     input_sequence[i, 2] = np.cos(2 * np.pi * hour / 24)
         
         # Scale input
-        scaled_input = scaler.transform(input_sequence)
+        scaled_input = loaded_scaler.transform(input_sequence)
         scaled_input = scaled_input.reshape(1, lookback, n_features)
         
         # Monte Carlo Dropout - multiple forward passes
         predictions_samples = []
         for _ in range(n_samples):
             # Note: In production, use model(scaled_input, training=True) for MC Dropout
-            prediction = model.predict(scaled_input, verbose=0)
+            prediction = loaded_model.predict(scaled_input, verbose=0)
             predictions_samples.append(prediction[0])
         
         # Calculate mean and uncertainty
@@ -775,10 +799,10 @@ def predict_with_lstm_uncertainty(current_aqi, lat=None, lon=None, n_samples=10)
         std_predictions = np.std(predictions_array, axis=0)
         
         # Inverse transform
-        forecast_horizon = config.get('forecast_horizon', 24)
+        forecast_horizon = loaded_config.get('forecast_horizon', 24)
         dummy = np.zeros((1, forecast_horizon, n_features))
         dummy[0, :, 0] = mean_predictions
-        prediction_actual = scaler.inverse_transform(dummy.reshape(-1, n_features))[:, 0]
+        prediction_actual = loaded_scaler.inverse_transform(dummy.reshape(-1, n_features))[:, 0]
         
         # Build predictions with uncertainty
         predictions = []
