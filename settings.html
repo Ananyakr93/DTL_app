@@ -53,27 +53,14 @@
                     <label>Name:</label>
                     <input type="text" id="userName" placeholder="Your name">
 
-                    <label>Health Conditions (select all that apply):</label>
-                    <div class="checkbox-group" style="margin-bottom: 15px;">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="conditionAsthma" value="asthma"> Asthma
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="conditionHeart" value="heart_disease"> Heart Disease
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="conditionElderly" value="elderly"> Elderly (65+)
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="conditionChildren" value="children"> Children in Household
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="conditionCOPD" value="copd"> COPD
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="conditionPregnant" value="pregnant"> Pregnant
-                        </label>
-                    </div>
+                    <label>Health Mode:</label>
+                    <select id="healthMode"
+                        style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 15px;">
+                        <option value="normal" selected>Normal (Default)</option>
+                        <option value="asthma">Asthma / Respiratory Allergies</option>
+                        <option value="elderly">Elderly / Children</option>
+                        <option value="sensitive">Sensitive (Heart/Lung Conditions)</option>
+                    </select>
 
                     <label>Personal AQI Alert Threshold:</label>
                     <input type="number" id="personalThreshold" value="100" min="50" max="300">
@@ -312,11 +299,12 @@
             if (settings.userName) {
                 document.getElementById('userName').value = settings.userName;
             }
-            if (settings.healthConditions) {
-                settings.healthConditions.split(',').forEach(condition => {
-                    const checkbox = document.querySelector(`input[value="${condition}"]`);
-                    if (checkbox) checkbox.checked = true;
-                });
+            if (settings.healthMode) {
+                document.getElementById('healthMode').value = settings.healthMode;
+            } else if (settings.healthConditions) {
+                // Legacy fallback support for old checkboxes
+                if (settings.healthConditions.includes('asthma')) document.getElementById('healthMode').value = 'asthma';
+                else if (settings.healthConditions.includes('elderly')) document.getElementById('healthMode').value = 'elderly';
             }
             if (settings.gdprConsent) {
                 document.getElementById('gdprConsent').checked = settings.gdprConsent;
@@ -330,13 +318,8 @@
             const gdprConsent = document.getElementById('gdprConsent').checked;
 
             // Collect health conditions
-            const conditions = [];
-            ['conditionAsthma', 'conditionHeart', 'conditionElderly', 'conditionChildren', 'conditionCOPD', 'conditionPregnant'].forEach(id => {
-                const checkbox = document.getElementById(id);
-                if (checkbox && checkbox.checked) {
-                    conditions.push(checkbox.value);
-                }
-            });
+            const healthMode = document.getElementById('healthMode').value;
+            localStorage.setItem('aeroCleanHealthMode', healthMode); // Sync for other pages
 
             if (!email) {
                 alert('Please enter your email address');
@@ -355,7 +338,7 @@
                     body: JSON.stringify({
                         email: email,
                         name: name,
-                        health_conditions: conditions.join(','),
+                        health_conditions: healthMode, // Reuse DB field for mode
                         alert_threshold: parseInt(threshold),
                         gdpr_consent: gdprConsent ? 1 : 0
                     })
@@ -368,7 +351,8 @@
                     const settings = JSON.parse(localStorage.getItem('aqiSettings') || '{}');
                     settings.userEmail = email;
                     settings.userName = name;
-                    settings.healthConditions = conditions.join(',');
+                    settings.healthMode = healthMode;
+                    localStorage.setItem('aeroCleanHealthMode', healthMode);
                     settings.personalThreshold = threshold;
                     settings.gdprConsent = gdprConsent;
                     localStorage.setItem('aqiSettings', JSON.stringify(settings));
@@ -383,7 +367,8 @@
                 const settings = JSON.parse(localStorage.getItem('aqiSettings') || '{}');
                 settings.userEmail = email;
                 settings.userName = name;
-                settings.healthConditions = conditions.join(',');
+                settings.healthMode = healthMode;
+                localStorage.setItem('aeroCleanHealthMode', healthMode);
                 localStorage.setItem('aqiSettings', JSON.stringify(settings));
                 alert('✅ Health profile saved locally.\n\n(Note: Server sync failed, will retry later)');
             }

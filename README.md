@@ -8,8 +8,9 @@ A **best-in-class, publish-worthy** real-time air quality prediction dashboard f
 
 ## ✨ Key Features
 
-- **24-Hour AQI Predictions** with uncertainty quantification
-- **Multi-Source Data Fusion** (AQICN + Open-Meteo + LSTM)
+- **24-Hour AQI Predictions** with uncertainty quantification (GRU Model)
+- **Dual API Integration** (Official CPCB for India, AQICN for Global)
+- **Multi-Source Data Fusion** (CPCB/AQICN + Open-Meteo + GRU)
 - **Explainable AI (XAI)** for pollutant impact analysis
 - **Anomaly Detection** with root cause identification
 - **Interactive Maps** using Leaflet.js
@@ -21,7 +22,7 @@ A **best-in-class, publish-worthy** real-time air quality prediction dashboard f
 
 | Novelty | Description | Publication Angle |
 |---------|-------------|-------------------|
-| **Multi-Source Data Fusion** | Bayesian ensemble of AQICN, Open-Meteo, and LSTM predictions with confidence intervals | Uncertainty-aware AQI forecasting |
+| **Multi-Source Data Fusion** | Bayesian ensemble of CPCB, AQICN, Open-Meteo, and GRU predictions with confidence intervals | Uncertainty-aware AQI forecasting |
 | **Explainable AI** | Gradient-based feature importance showing pollutant contribution percentages | Interpretable deep learning for air quality |
 | **Anomaly Detection** | IsolationForest with temporal pattern correlation for spike detection | Automated pollution event attribution |
 
@@ -40,10 +41,7 @@ cd d:\DTL
 # Install dependencies
 pip install -r requirements.txt
 
-# (Optional) Train the LSTM model
-python train_lstm.py
-
-# Start the server
+# Start the server (Models load lazily)
 python app.py
 ```
 
@@ -54,17 +52,24 @@ Open your browser and navigate to: `http://127.0.0.1:5000`
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/current?city=Bangalore` | Current AQI (AQICN) |
-| `GET /api/predict?city=Bangalore&hours=24` | 24-hour predictions |
+| `GET /api/current?city=Bangalore` | Current AQI (CPCB/AQICN auto-select) |
+| `GET /api/predict?city=Bangalore&hours=24` | 24-hour predictions (GRU) |
 | `GET /api/explain?city=Bangalore` | XAI pollutant breakdown |
 | `GET /api/anomaly?city=Bangalore` | Anomaly detection |
 | `GET /api/historical?city=Bangalore&days=30` | Historical data |
-| `GET /api/scenario?city=Bangalore&scenario=high_traffic` | What-if scenarios |
-| `GET /api/health` | API health check |
+| `GET /api/rankings?timeframe=live` | Cleanest/Most Polluted cities |
+| `GET /api/map-data` | Interactive map data |
+| `GET /api/user/profile` | User health profile |
 
 ## 🔑 API Configuration
 
-### AQICN Token
+### CPCB API (India)
+The app uses a provided key for `data.gov.in`. You can override it:
+```bash
+set CPCB_API_KEY=your_key  # Windows
+```
+
+### AQICN Token (Global)
 Register at [aqicn.org/api](https://aqicn.org/api/) and set the token:
 
 ```bash
@@ -80,7 +85,7 @@ No API key required (free tier).
 ```
 DTL/
 ├── app.py              # Flask backend with all APIs
-├── train_lstm.py       # LSTM model training (24-hour forecast)
+├── aqi_gru_model.keras # Pre-trained GRU model
 ├── index.html          # Main dashboard
 ├── analytics.html      # Analytics with maps & XAI
 ├── devices.html        # Anomaly detection
@@ -88,23 +93,23 @@ DTL/
 ├── settings.html       # User preferences
 ├── script.js           # Frontend logic
 ├── style.css           # Styling with dark mode
-├── aqi_data.csv        # Training data
 ├── requirements.txt    # Dependencies
 └── README.md           # This file
 ```
 
 ## 🎯 Supported Indian Cities
 
-Bangalore, Delhi, Mumbai, Chennai, Kolkata, Hyderabad, Pune, Ahmedabad, Jaipur, Lucknow, and more.
+The system prioritizes **CPCB data** for:
+Bangalore, Delhi, Mumbai, Chennai, Kolkata, Hyderabad, Pune, Ahmedabad, Jaipur, Lucknow, and many more.
 
 ## 📊 Performance Metrics
 
 | Metric | Value |
 |--------|-------|
 | Forecast Horizon | 24 hours |
-| Data Sources | 2 (AQICN + Open-Meteo) |
+| Data Sources | 3 (CPCB, AQICN, Open-Meteo) |
 | Historical Data | 30 days |
-| AQI Standard | Indian CPCB |
+| AQI Standard | Indian CPCB (Auto-calc for AQICN) |
 
 ## 🐳 Docker Deployment
 

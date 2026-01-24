@@ -12,18 +12,18 @@ try {
         socket = io(window.location.origin);
 
         socket.on('connect', () => {
-            console.log("CONNECTED to WebSocket! ⚡");
+            // console.log("CONNECTED to WebSocket! ⚡");
             if (currentCity) {
                 socket.emit('join', { city: currentCity });
             }
         });
 
         socket.on('aqi_update', (data) => {
-            console.log("🔴 Real-time update received!", data);
+            // console.log("🔴 Real-time update received!", data);
             updateUI(data);
         });
     } else {
-        console.log("ℹ️ Socket.IO not available - using polling mode");
+        // console.log("ℹ️ Socket.IO not available - using polling mode");
     }
 } catch (e) {
     console.log("ℹ️ WebSocket not available:", e.message);
@@ -84,14 +84,78 @@ function debounce(func, wait) {
     };
 }
 
+function showPersonalAlert(risk) {
+    let alertBox = document.getElementById('personalAlertBox');
+
+    // Create if missing
+    if (!alertBox) {
+        alertBox = document.createElement('div');
+        alertBox.id = 'personalAlertBox';
+        // Insert after data source badge
+        const badge = document.getElementById('dataSourceBadge');
+        if (badge && badge.parentNode) {
+            badge.parentNode.insertBefore(alertBox, badge.nextSibling);
+        } else {
+            const mc = document.getElementById('mainContent');
+            mc.prepend(alertBox);
+        }
+
+        // Base Styles
+        alertBox.style.marginTop = "15px";
+        alertBox.style.marginBottom = "15px";
+        alertBox.style.padding = "15px";
+        alertBox.style.borderRadius = "12px";
+        alertBox.style.display = "none";
+        alertBox.style.animation = "fadeIn 0.5s ease-in-out";
+    }
+
+    // Logic: Show only if Moderate+ for sensitive or Poor+ for normal
+    // The backend provides 'risk_level'
+
+    if (risk.risk_level === 'High' || risk.risk_level === 'Severe' || (risk.alert_message && risk.risk_level !== 'Low')) {
+        alertBox.style.display = 'block';
+        const isSevere = risk.risk_level === 'Severe';
+        const isHigh = risk.risk_level === 'High';
+
+        alertBox.style.backgroundColor = isSevere ? '#ffebee' : (isHigh ? '#fff3e0' : '#e3f2fd');
+        alertBox.style.borderLeft = isSevere ? '5px solid #ef5350' : (isHigh ? '5px solid #ff9800' : '5px solid #2196f3');
+        alertBox.style.color = '#333';
+
+        alertBox.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:24px">${isSevere ? '🚨' : (isHigh ? '⚠️' : 'ℹ️')}</span>
+                    <div>
+                        <h3 style="margin:0; font-size:16px; font-weight:bold; color:${isSevere ? '#c62828' : '#e65100'}">
+                            ${risk.alert_title || 'Health Update'}
+                        </h3>
+                        <p style="margin:2px 0 0 0; font-size:14px;">${risk.alert_message}</p>
+                    </div>
+                </div>
+                ${risk.tips && risk.tips.length > 0 ? `
+                <div style="background:rgba(255,255,255,0.5); padding:10px; border-radius:8px;">
+                    <strong style="font-size:12px; text-transform:uppercase; color:#666;">Recommended Actions:</strong>
+                    <ul style="margin:5px 0 0 20px; padding:0; font-size:14px;">
+                        ${risk.tips.map(t => `<li>${t}</li>`).join('')}
+                    </ul>
+                </div>` : ''}
+            </div>
+        `;
+    } else {
+        alertBox.style.display = 'none';
+        alertBox.innerHTML = '';
+    }
+}
+
 /* ================= CURRENT AQI ================= */
 async function loadCurrentAQI(lat = null, lon = null) {
     try {
         showLoading();
 
-        let url = `${API_BASE}/api/current?city=${encodeURIComponent(currentCity)}`;
+        const healthMode = localStorage.getItem('aeroCleanHealthMode') || 'normal';
+        let url = `${API_BASE}/api/current?city=${encodeURIComponent(currentCity)}&health_mode=${healthMode}`;
         if (lat && lon) {
-            url = `${API_BASE}/api/current?lat=${lat}&lon=${lon}`;
+            url = `${API_BASE}/api/current?lat=${lat}&lon=${lon}&health_mode=${healthMode}`;
         }
 
         const res = await fetch(url);
@@ -143,6 +207,11 @@ async function loadCurrentAQI(lat = null, lon = null) {
             });
         }
 
+        // Show Personal Alert
+        if (data.personal_risk) {
+            showPersonalAlert(data.personal_risk);
+        }
+
         hideLoading();
 
         // Reset countdown
@@ -158,13 +227,16 @@ async function loadCurrentAQI(lat = null, lon = null) {
 async function loadPrediction() {
     try {
         const scenario = document.getElementById("scenarioSelect")?.value || "normal";
-        const res = await fetch(`${API_BASE}/api/predict?city=${encodeURIComponent(currentCity)}&hours=24&scenario=${scenario}`);
+        const healthMode = localStorage.getItem('aeroCleanHealthMode') || 'normal';
+        const res = await fetch(`${API_BASE}/api/predict?city=${encodeURIComponent(currentCity)}&hours=24&scenario=${scenario}&health_mode=${healthMode}`);
 
         if (!res.ok) {
             throw new Error("Failed to fetch prediction");
         }
 
-        const data = await res.json();
+
+        const jsonResponse = await res.json();
+        const data = jsonResponse.predictions || [];
 
         const box = document.getElementById("predictionBars");
         box.innerHTML = "";
@@ -247,6 +319,8 @@ function searchCity() {
 
     if (city !== "" && city !== currentCity) {
         currentCity = city;
+        localStorage.setItem('selectedCity', city); // Persist for other pages
+        localStorage.setItem('defaultCity', city);  // Save preference
         loadAllData();
     }
 }
@@ -254,23 +328,44 @@ function searchCity() {
 /* ================= AUTO LOCATION & SUGGESTIONS ================= */
 function detectLocation() {
     if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser");
+        console.warn("Geolocation not supported");
+        loadAllData(); // Fallback immediately
         return;
     }
 
     showLoading();
+
+    let locationFound = false;
+
+    // Set a timeout of 3 seconds
+    const timeoutId = setTimeout(() => {
+        if (!locationFound) {
+            console.warn("Location request timed out. Loading default.");
+            locationFound = true; // Prevent late success from overriding
+            loadAllData(); // Fallback to default city
+        }
+    }, 3000);
+
     navigator.geolocation.getCurrentPosition(
         (position) => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            loadAllData(lat, lon);
+            if (!locationFound) {
+                locationFound = true;
+                clearTimeout(timeoutId);
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                loadAllData(lat, lon);
+            }
         },
         (error) => {
-            console.error("Geolocation error:", error);
-            hideLoading();
-            alert("Unable to retrieve your location. Using default city.");
-            loadAllData(); // Fallback
-        }
+            if (!locationFound) {
+                locationFound = true;
+                clearTimeout(timeoutId);
+                console.error("Geolocation error:", error);
+                // Don't alert() on startup, just fallback
+                loadAllData();
+            }
+        },
+        { timeout: 3000, maximumAge: 600000 }
     );
 }
 
@@ -361,8 +456,8 @@ async function loadAllData(lat = null, lon = null) {
 
 /* ================= INITIAL LOAD ================= */
 document.addEventListener("DOMContentLoaded", () => {
-    // Load saved city preference
-    const savedCity = localStorage.getItem('defaultCity');
+    // Load saved city preference (Shared across pages)
+    const savedCity = localStorage.getItem('selectedCity') || localStorage.getItem('defaultCity');
     if (savedCity) {
         currentCity = savedCity;
         const searchInput = document.getElementById("citySearch");

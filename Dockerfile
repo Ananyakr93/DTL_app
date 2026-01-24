@@ -24,9 +24,9 @@ COPY *.js .
 COPY *.css .
 
 # Copy model files if they exist
-COPY aqi_lstm_model_improved.keras* ./
-COPY scaler_improved.pkl* ./
-COPY model_config.pkl* ./
+COPY aqi_gru_model.keras* ./
+COPY scaler_gru.pkl* ./
+COPY model_config_gru.pkl* ./
 
 # Create volume for persistent data
 VOLUME ["/app/data"]

@@ -106,11 +106,13 @@
                     <tbody>
                         <tr>
                             <td><strong>SENSOR-001</strong></td>
-                            <td>📍 Bangalore Central</td>
-                            <td><span style="color: #4caf50;">🟢 Active</span></td>
+                            <td class="device-location">📍 Bangalore Central</td>
+                            <td>
+                                <div class="device-status"><span style="color: #4caf50;">🟢 Active</span></div>
+                            </td>
                             <td>2 mins ago</td>
                             <td><span style="color: #4caf50; font-weight: 600;">45 (Good)</span></td>
-                            <td>
+                            <td class="device-actions">
                                 <button onclick="viewDevice('SENSOR-001')">View</button>
                                 <button style="background: #f44336;"
                                     onclick="removeDevice('SENSOR-001')">Remove</button>
@@ -118,11 +120,13 @@
                         </tr>
                         <tr>
                             <td><strong>SENSOR-002</strong></td>
-                            <td>📍 Whitefield</td>
-                            <td><span style="color: #4caf50;">🟢 Active</span></td>
+                            <td class="device-location">📍 Whitefield</td>
+                            <td>
+                                <div class="device-status"><span style="color: #4caf50;">🟢 Active</span></div>
+                            </td>
                             <td>5 mins ago</td>
                             <td><span style="color: #ffc107; font-weight: 600;">87 (Satisfactory)</span></td>
-                            <td>
+                            <td class="device-actions">
                                 <button onclick="viewDevice('SENSOR-002')">View</button>
                                 <button style="background: #f44336;"
                                     onclick="removeDevice('SENSOR-002')">Remove</button>
@@ -130,11 +134,13 @@
                         </tr>
                         <tr>
                             <td><strong>SENSOR-003</strong></td>
-                            <td>📍 Electronic City</td>
-                            <td><span style="color: #f44336;">🔴 Offline</span></td>
+                            <td class="device-location">📍 Electronic City</td>
+                            <td>
+                                <div class="device-status"><span style="color: #f44336;">🔴 Offline</span></div>
+                            </td>
                             <td>2 hours ago</td>
                             <td><span style="color: #999;">-- (No Data)</span></td>
-                            <td>
+                            <td class="device-actions">
                                 <button onclick="viewDevice('SENSOR-003')">View</button>
                                 <button style="background: #f44336;"
                                     onclick="removeDevice('SENSOR-003')">Remove</button>
@@ -229,6 +235,36 @@
             border-radius: 20px;
             margin: 5px;
             font-weight: 600;
+        }
+
+        /* Device List Improvements */
+        .device-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-start;
+            white-space: nowrap;
+        }
+
+        .device-actions button {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .device-status {
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .device-location {
+            white-space: nowrap;
+        }
+
+        table td {
+            vertical-align: middle !important;
+            padding: 12px 15px;
+            /* Improved spacing */
         }
     </style>
 
