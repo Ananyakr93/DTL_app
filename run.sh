@@ -1,30 +1,22 @@
 #!/bin/bash
+# Run script for Air Quality Prediction Dashboard
 
-# AeroClean Dashboard Launcher
+echo "🚀 Starting AeroClean Dashboard..."
 
-echo "=================================="
-echo "   AeroClean Dashboard Setup"
-echo "=================================="
-
-# Check if pip is installed
-if ! command -v pip &> /dev/null; then
-    echo "❌ Error: pip is not installed or not in PATH."
-    exit 1
+# Activate virtual environment
+if [ -d "venv" ]; then
+    source venv/bin/activate
+elif [ -d ".venv" ]; then
+    source .venv/bin/activate
 fi
 
-echo "📦 Installing necessary dependencies..."
-pip install -r requirements.txt
+# Check if dependencies are installed
+python -c "import flask" 2>/dev/null || {
+    echo "📦 Installing dependencies..."
+    pip install -r requirements.txt
+}
 
-if [ $? -eq 0 ]; then
-    echo "✅ Dependencies installed successfully."
-else
-    echo "❌ Error installing dependencies."
-    exit 1
-fi
-
-echo "=================================="
-echo "   Starting Local Server..."
-echo "=================================="
-echo "🌍 Dashboard will be available at: http://127.0.0.1:5000"
-
+# Run the Flask application
+echo "🌐 Starting server at http://localhost:5000"
+cd src
 python app.py

@@ -1,143 +1,122 @@
-# 🌿 AeroClean - Air Quality Prediction Dashboard
+# Air Quality Prediction Dashboard (AeroClean)
 
-A **best-in-class, publish-worthy** real-time air quality prediction dashboard for Indian cities with **3 research novelties**.
+A comprehensive air quality monitoring and prediction platform using advanced machine learning models.
 
-![Version](https://img.shields.io/badge/version-3.0.0-green)
-![Python](https://img.shields.io/badge/python-3.9+-blue)
-![License](https://img.shields.io/badge/license-MIT-orange)
+## 🚀 Features
 
-## ✨ Key Features
-
-- **24-Hour AQI Predictions** with uncertainty quantification (GRU Model)
-- **Dual API Integration** (Official CPCB for India, AQICN for Global)
-- **Multi-Source Data Fusion** (CPCB/AQICN + Open-Meteo + GRU)
-- **Explainable AI (XAI)** for pollutant impact analysis
-- **Anomaly Detection** with root cause identification
-- **Interactive Maps** using Leaflet.js
-- **PDF/Excel Report Generation**
-- **Health Profiles** for personalized recommendations
-- **Dark Mode** support
-
-## 🔬 Research Novelties
-
-| Novelty | Description | Publication Angle |
-|---------|-------------|-------------------|
-| **Multi-Source Data Fusion** | Bayesian ensemble of CPCB, AQICN, Open-Meteo, and GRU predictions with confidence intervals | Uncertainty-aware AQI forecasting |
-| **Explainable AI** | Gradient-based feature importance showing pollutant contribution percentages | Interpretable deep learning for air quality |
-| **Anomaly Detection** | IsolationForest with temporal pattern correlation for spike detection | Automated pollution event attribution |
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.9+
-- pip
-
-### Installation
-
-```bash
-# Clone or navigate to the project
-cd d:\DTL
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start the server (Models load lazily)
-python app.py
-```
-
-### Access the Dashboard
-Open your browser and navigate to: `http://127.0.0.1:5000`
-
-## 📡 API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/current?city=Bangalore` | Current AQI (CPCB/AQICN auto-select) |
-| `GET /api/predict?city=Bangalore&hours=24` | 24-hour predictions (GRU) |
-| `GET /api/explain?city=Bangalore` | XAI pollutant breakdown |
-| `GET /api/anomaly?city=Bangalore` | Anomaly detection |
-| `GET /api/historical?city=Bangalore&days=30` | Historical data |
-| `GET /api/rankings?timeframe=live` | Cleanest/Most Polluted cities |
-| `GET /api/map-data` | Interactive map data |
-| `GET /api/user/profile` | User health profile |
-
-## 🔑 API Configuration
-
-### CPCB API (India)
-The app uses a provided key for `data.gov.in`. You can override it:
-```bash
-set CPCB_API_KEY=your_key  # Windows
-```
-
-### AQICN Token (Global)
-Register at [aqicn.org/api](https://aqicn.org/api/) and set the token:
-
-```bash
-set AQICN_TOKEN=your_token_here  # Windows
-export AQICN_TOKEN=your_token_here  # Linux/Mac
-```
-
-### Open-Meteo
-No API key required (free tier).
+- **Real-time AQI Monitoring**: Live air quality data from CPCB and AQICN APIs
+- **24-Hour Predictions**: Advanced GRU model with attention mechanism (MAE: 25.49, RMSE: 43.58)
+- **Health Recommendations**: Personalized advice based on AQI levels and health conditions
+- **Multi-City Support**: 50+ Indian cities with official CPCB data
+- **Anomaly Detection**: Machine learning-based pollution spike detection
 
 ## 📁 Project Structure
 
 ```
 DTL/
-├── app.py              # Flask backend with all APIs
-├── aqi_gru_model.keras # Pre-trained GRU model
-├── index.html          # Main dashboard
-├── analytics.html      # Analytics with maps & XAI
-├── devices.html        # Anomaly detection
-├── reports.html        # PDF/Excel generation
-├── settings.html       # User preferences
-├── script.js           # Frontend logic
-├── style.css           # Styling with dark mode
-├── requirements.txt    # Dependencies
-└── README.md           # This file
+├── src/                    # Core application source code
+│   ├── app.py              # Main Flask application
+│   └── start_public.py     # Public server script
+│
+├── models/                 # ML model artifacts
+│   ├── saved_models/       # Trained .keras/.h5 files
+│   ├── compare_models.py   # Model evaluation script
+│   ├── *.pkl               # Scalers and configs
+│   └── *.png               # Training visualizations
+│
+├── scripts/                # Training and utility scripts
+│   ├── train_advanced_gru.py
+│   ├── train_gru.py
+│   ├── train_lstm.py
+│   └── indian_cities.py
+│
+├── templates/              # HTML templates (Jinja2)
+│   ├── index.html          # Dashboard homepage
+│   ├── analytics.html
+│   ├── devices.html
+│   ├── reports.html
+│   └── settings.html
+│
+├── static/                 # Frontend assets
+│   ├── css/style.css
+│   ├── js/script.js
+│   └── images/
+│
+├── data/                   # Data files (gitignored)
+│   ├── aeroclean.db        # SQLite database
+│   └── *.csv               # Training datasets
+│
+├── notebooks/              # Jupyter notebooks for exploration
+│
+├── docs/                   # Project documentation
+│
+├── venv/                   # Python virtual environment
+├── requirements.txt        # Python dependencies
+├── render.yaml             # Render.com deployment config
+├── run.sh                  # Startup script
+└── LICENSE                 # MIT License
 ```
 
-## 🎯 Supported Indian Cities
+## 🛠️ Setup
 
-The system prioritizes **CPCB data** for:
-Bangalore, Delhi, Mumbai, Chennai, Kolkata, Hyderabad, Pune, Ahmedabad, Jaipur, Lucknow, and many more.
+### Prerequisites
+- Python 3.10+
+- pip
 
-## 📊 Performance Metrics
+### Installation
 
-| Metric | Value |
-|--------|-------|
-| Forecast Horizon | 24 hours |
-| Data Sources | 3 (CPCB, AQICN, Open-Meteo) |
-| Historical Data | 30 days |
-| AQI Standard | Indian CPCB (Auto-calc for AQICN) |
-
-## 🐳 Docker Deployment
-
+1. Clone the repository:
 ```bash
-docker build -t aeroclean .
-docker run -p 5000:5000 -e AQICN_TOKEN=your_token aeroclean
+git clone https://github.com/yourusername/DTL.git
+cd DTL
 ```
 
-## ☁️ Render.com Deployment
+2. Create virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate     # Windows
+```
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-### Manual Setup
+4. Run the application:
+```bash
+cd src
+python app.py
+```
 
-1. Push code to GitHub
-2. Go to [render.com](https://render.com) → New → Web Service
-3. Connect your GitHub repository
-4. Render auto-detects `render.yaml` configuration
-5. Add environment variable:
-   - `AQICN_TOKEN` = your token from [aqicn.org](https://aqicn.org/api/)
-6. Deploy!
+5. Open browser at: http://localhost:5000
 
-> **Render supports:** TensorFlow, WebSockets, persistent storage, and no cold starts.
+## 🤖 Model Performance
 
-## 📜 License
+| Model | MAE | RMSE | Status |
+|-------|-----|------|--------|
+| **Advanced GRU (Attention + STL)** | **25.49** | **43.58** | ✅ Target Met |
+| GRU Baseline | 54.86 | 75.24 | - |
+| LSTM Baseline | 56.18 | 76.12 | - |
 
-MIT License - see LICENSE file for details.
+## 📊 API Endpoints
 
----
+- `GET /api/current?city=<city>` - Current AQI
+- `GET /api/predict?city=<city>&hours=24` - 24-hour prediction
+- `GET /api/historical?city=<city>&days=7` - Historical data
+- `GET /api/health` - Server health check
 
-Built with ❤️ for cleaner air in India
+## 🌐 Data Sources
+
+- **Primary**: CPCB (Central Pollution Control Board) - Official Indian AQI
+- **Fallback**: AQICN (World Air Quality Index) - Global coverage
+- **Forecast**: Open-Meteo Air Quality API
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file.
+
+## 👥 Authors
+
+Design Thinking Lab Project - 2026
