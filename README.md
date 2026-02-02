@@ -56,7 +56,7 @@ DTL/
 ├── requirements.txt        # Python dependencies
 ├── render.yaml             # Render.com deployment config
 ├── run.sh                  # Startup script
-└── LICENSE                 # MIT License
+
 ```
 
 ## 🛠️ Setup
@@ -115,9 +115,7 @@ python app.py
 - **Fallback**: AQICN (World Air Quality Index) - Global coverage
 - **Forecast**: Open-Meteo Air Quality API
 
-## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file.
 
 ## 👥 Authors
 

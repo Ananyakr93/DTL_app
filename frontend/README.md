@@ -154,9 +154,7 @@ Plus 70+ more Indian cities including:
 - **Lucide React** for icons
 - **Vite** for development
 
-## 📄 License
 
-MIT
 
 ---
 
