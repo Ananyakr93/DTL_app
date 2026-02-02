@@ -6,8 +6,10 @@ A comprehensive air quality monitoring and prediction platform using advanced ma
 
 - **Real-time AQI Monitoring**: Live air quality data from CPCB and AQICN APIs
 - **24-Hour Predictions**: Advanced GRU model with attention mechanism (MAE: 25.49, RMSE: 43.58)
-- **Health Recommendations**: Personalized advice based on AQI levels and health conditions
-- **Multi-City Support**: 50+ Indian cities with official CPCB data
+- **Health Insights Banner**: Always-visible, personalized health advice with granular AQI categories
+- **Cigarette Equivalence**: Visualizes pollution impact in terms of cigarettes per day (Berkeley Earth)
+- **Dynamic Risk Icons**: Interactive visualizations for lung and heart health risks
+- **India-Centric Design**: Optimized search and heatmap strictly for Indian cities
 - **Anomaly Detection**: Machine learning-based pollution spike detection
 
 ## 📁 Project Structure
