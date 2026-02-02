@@ -152,15 +152,20 @@ CPCB_CITY_NAMES_LOWER = [
 ]
 
 # ===================== DATABASE SETUP =====================
-# On Vercel, use /tmp directory (ephemeral storage)
+# On Vercel or Render, use /tmp directory (ephemeral storage)
 IS_VERCEL = os.environ.get('VERCEL') == '1'
-if IS_VERCEL:
+IS_RENDER = os.environ.get('RENDER') == 'true'
+
+if IS_VERCEL or IS_RENDER:
     DB_PATH = '/tmp/aeroclean.db'
 else:
     DB_PATH = os.path.join(PROJECT_ROOT, 'data', 'aeroclean.db')
 
 def init_db():
     """Initialize SQLite database for user profiles"""
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS user_profiles (
