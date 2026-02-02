@@ -2,6 +2,8 @@
 
 A comprehensive air quality monitoring and prediction platform using advanced machine learning models (GRU + Attention) and a modern React frontend.
 
+> **Project Status**: ✅ **Active & Stable** (v2.0 - February 2026)
+
 ## 🚀 Features
 
 - **Real-time AQI Monitoring**: Live air quality data from CPCB (India) and AQICN (Global) APIs.
