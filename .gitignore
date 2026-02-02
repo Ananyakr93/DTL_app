@@ -62,8 +62,8 @@ models/*.h5
 models/*.pkl
 
 # Data files (large)
-data/*.csv
-*.csv
+# data/*.csv
+# *.csv
 *.xlsx
 !package.json
 !package-lock.json
