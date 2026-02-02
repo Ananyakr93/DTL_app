@@ -106,7 +106,7 @@ export interface HistoricalDataPoint {
 }
 
 // Page types for routing
-export type PageType = 'dashboard' | 'heatmap' | 'analytics' | 'reports' | 'settings';
+export type PageType = 'dashboard' | 'heatmap' | 'analytics' | 'reports' | 'settings' | 'compare';
 
 // City AQI data for heatmap
 export interface CityAQI {

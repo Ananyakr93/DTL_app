@@ -1,10 +1,18 @@
-import { Wind, TrendingUp, TrendingDown, Activity, Clock, Database } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Activity, Clock, HelpCircle } from 'lucide-react';
 import { useStore } from '../store';
 import { getAQIColor } from '../utils';
+import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, YAxis } from 'recharts';
+import AqiInsightsStrip from './AqiInsightsStrip';
 
 export default function AQICard() {
-    const { currentData, lastUpdate, refreshCountdown, settings, isLoading } = useStore();
+    const { currentData, lastUpdate, refreshCountdown, settings, isLoading, predictions } = useStore();
     const isDarkMode = settings.isDarkMode;
+
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    // Quick win: One-time toast or confetti could go here in useEffect, 
+    // but for now we focus on the core insights.
 
     if (!currentData) {
         return (
@@ -17,8 +25,27 @@ export default function AQICard() {
     const { current } = currentData;
     const aqiColor = getAQIColor(current.aqi_color);
 
-    // Determine trend based on AQI value
-    const trend = current.aqi_value > 150 ? 'up' : current.aqi_value < 80 ? 'down' : 'stable';
+    // Trend Calculation (Simple Slope of last 6 points)
+    const trendText = useMemo(() => {
+        if (!predictions || predictions.length < 6) return "Stable";
+        // Compare avg of last 3 vs prev 3
+        const last3 = predictions.slice(-3).reduce((a, b) => a + b.aqi, 0) / 3;
+        const prev3 = predictions.slice(-6, -3).reduce((a, b) => a + b.aqi, 0) / 3;
+        const diff = last3 - prev3;
+
+        if (diff > 5) return "Air quality worsening";
+        if (diff < -5) return "Improving";
+        return "Stable";
+    }, [predictions]);
+
+
+
+    // Gauge Data
+    const gaugeData = [
+        { name: 'val', value: Math.min(current.aqi_value, 500) },
+        { name: 'rest', value: 500 - Math.min(current.aqi_value, 500) }
+    ];
+    const gaugeColors = [aqiColor, isDarkMode ? '#334155' : '#e2e8f0'];
 
     return (
         <div
@@ -44,64 +71,92 @@ export default function AQICard() {
                                 Air Quality Index
                             </p>
                             <h2 className="text-lg font-bold mt-1">{current.station}</h2>
+                            {/* Main AQI Display */}
+                            <div className="flex items-end gap-4">
+                                <div>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-6xl font-bold tracking-tight">{current.aqi_value}</span>
+                                        <span className="text-xl font-medium opacity-80">AQI</span>
+                                    </div>
+                                    {/* Tooltip for AQI Number */}
+                                    <div className="relative group">
+                                        <div className="cursor-help flex items-center gap-1 opacity-90 mt-1"
+                                            onMouseEnter={() => setShowTooltip(true)}
+                                            onMouseLeave={() => setShowTooltip(false)}>
+                                            <HelpCircle className="w-3 h-3" />
+                                            <span className="text-xs border-b border-dotted border-white/50">What does this mean?</span>
+                                        </div>
+                                        {showTooltip && (
+                                            <div className="absolute bottom-full left-0 mb-2 w-56 p-3 bg-black/90 text-white text-xs rounded-xl shadow-xl z-50 pointer-events-none">
+                                                <p className="font-bold mb-1">AQI {current.aqi_value} = {current.aqi_status}</p>
+                                                Main driver: {current.dominant_pollutant}. Safe for most, but take precautions if sensitive.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Sparkline */}
+                                <div className="h-16 w-32 pb-2 opacity-90">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={predictions}>
+                                            <defs>
+                                                <linearGradient id="colorAqi" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.8} />
+                                                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <YAxis domain={['dataMin', 'dataMax']} hide />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="aqi"
+                                                stroke="#ffffff"
+                                                strokeWidth={2}
+                                                fillOpacity={1}
+                                                fill="url(#colorAqi)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-2 bg-white/20 rounded-xl">
-                            <Wind className="w-6 h-6" />
+                        {/* Trend Text */}
+                        <div className="flex flex-col items-end justify-center min-w-[80px]">
+                            <span className="text-xs text-gray-500 italic opacity-80">
+                                {trendText}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Main AQI Display */}
-                    <div className="flex items-end gap-4">
-                        <div>
-                            <span className="text-6xl font-bold tracking-tight">{current.aqi_value}</span>
-                            <span className="text-2xl font-medium ml-2 opacity-80">AQI</span>
-                        </div>
-                        <div className="mb-2">
-                            {trend === 'up' && <TrendingUp className="w-6 h-6 text-white/80" />}
-                            {trend === 'down' && <TrendingDown className="w-6 h-6 text-white/80" />}
-                        </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between">
-                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-semibold">
-                            {current.aqi_status}
-                        </span>
-                        <span className="text-white/70 text-sm flex items-center gap-1">
-                            <Database className="w-3 h-3" />
-                            {current.aqi_source}
-                        </span>
-                    </div>
                 </div>
             </div>
 
-            {/* AQI Scale */}
-            <div className="p-4">
-                <div className="relative h-3 rounded-full overflow-hidden bg-gray-200 dark:bg-slate-700">
-                    <div className="absolute inset-0 flex">
-                        <div className="flex-1 bg-green-500" />
-                        <div className="flex-1 bg-lime-500" />
-                        <div className="flex-1 bg-yellow-500" />
-                        <div className="flex-1 bg-orange-500" />
-                        <div className="flex-1 bg-red-500" />
-                        <div className="flex-1 bg-purple-500" />
-                    </div>
-                    {/* Marker */}
-                    <div
-                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full border-2 shadow-lg transition-all duration-500"
-                        style={{
-                            left: `${Math.min((current.aqi_value / 500) * 100, 100)}%`,
-                            borderColor: aqiColor,
-                        }}
-                    />
-                </div>
-                <div className="flex justify-between text-xs mt-2">
-                    <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>0</span>
-                    <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>100</span>
-                    <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>200</span>
-                    <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>300</span>
-                    <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>400</span>
-                    <span className={isDarkMode ? 'text-gray-500' : 'text-gray-400'}>500</span>
-                </div>
+
+
+            {/* Compact Gauge (Arc only) */}
+            <div className="px-6 pt-4 pb-0 h-16 relative overflow-hidden opacity-50 hover:opacity-100 transition-opacity">
+                <ResponsiveContainer width="100%" height={80}>
+                    <PieChart>
+                        <Pie
+                            data={gaugeData}
+                            cx="50%"
+                            cy="100%"
+                            startAngle={180}
+                            endAngle={0}
+                            innerRadius={60}
+                            outerRadius={70}
+                            paddingAngle={0}
+                            dataKey="value"
+                            stroke="none"
+                        >
+                            {gaugeData.map((_entry, index) => (
+                                <Cell key={`cell-${index}`} fill={gaugeColors[index]} />
+                            ))}
+                        </Pie>
+                    </PieChart>
+                </ResponsiveContainer>
+
+                {/* Scale Markers */}
+                <div className="absolute bottom-0 left-6 text-[10px] opacity-50">0</div>
+                <div className="absolute bottom-0 right-6 text-[10px] opacity-50">500</div>
             </div>
 
             {/* Update info */}
@@ -115,11 +170,15 @@ export default function AQICard() {
                 </div>
             </div>
 
-            {/* Dominant pollutant */}
-            <div className={`px-4 pb-4 border-t ${isDarkMode ? 'border-slate-700' : 'border-gray-100'} pt-3`}>
-                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                    Dominant pollutant: <span className="font-semibold text-brand-primary">{current.dominant_pollutant}</span>
-                </p>
+            {/* Advanced Insights Strip */}
+            <div className="pb-4 border-t border-transparent">
+                <AqiInsightsStrip
+                    aqi={current.aqi_value}
+                    dominantPollutant={current.dominant_pollutant}
+                    pm25Value={current.pm2_5}
+                    location={currentData.city || 'Unknown'}
+                    isDarkMode={isDarkMode}
+                />
             </div>
         </div>
     );

@@ -7,8 +7,10 @@ import { getCityByName, INDIAN_CITIES, type Station } from './data/cities';
 // =============================================================================
 
 // WAQI API - Primary source (reliable, works globally including India)
-const WAQI_TOKEN = '91cfb794c918bbc8fed384ff6aab22383dec190a';
+const WAQI_TOKEN = import.meta.env.VITE_WAQI_TOKEN || '91cfb794c918bbc8fed384ff6aab22383dec190a';
+
 const WAQI_API = 'https://api.waqi.info';
+const INDIA_BOUNDS = '6.0,68.0,35.0,97.0';
 
 // CPCB API - Secondary for India (can be slow/unreliable)
 const CPCB_API_KEY = '579b464db66ec23bdd0000019cbe093c60694b174ef48b7e614a8098';
@@ -168,17 +170,19 @@ function getPersonalizedRecommendations(
 // WAQI API (PRIMARY - RELIABLE)
 // =============================================================================
 
-async function fetchWAQIData(query: string | { lat: number; lon: number }): Promise<WAQIResponse | null> {
+async function fetchWAQIData(query: string | { lat: number; lon: number } | { uid: string | number }): Promise<WAQIResponse | null> {
     try {
         let url: string;
 
         if (typeof query === 'string') {
             url = `${WAQI_API}/feed/${encodeURIComponent(query)}/?token=${WAQI_TOKEN}`;
+        } else if ('uid' in query) {
+            url = `${WAQI_API}/feed/@${query.uid}/?token=${WAQI_TOKEN}`;
         } else {
             url = `${WAQI_API}/feed/geo:${query.lat};${query.lon}/?token=${WAQI_TOKEN}`;
         }
 
-        console.log(`[WAQI] Fetching: ${typeof query === 'string' ? query : `${query.lat},${query.lon}`}`);
+        console.log(`[WAQI] Fetching: ${typeof query === 'string' ? query : 'uid' in query ? `UID ${query.uid}` : `${query.lat},${query.lon}`}`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -245,6 +249,38 @@ async function searchAndFetchWAQI(query: string): Promise<WAQIResponse | null> {
     }
 }
 
+export async function fetchStationsInBounds(): Promise<Array<{ uid: number; lat: number; lon: number; aqi: number; station: { name: string; time: string } }>> {
+    const cacheKey = 'waqi-bounds-india';
+
+    // Check cache (TTL 1 hour)
+    const cached = apiCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 3600000) { // 1 hour
+        console.log(`[WAQI] Using cached bounds data (age: ${Math.round((Date.now() - cached.timestamp) / 60000)}m)`);
+        return cached.data as any;
+    }
+
+    try {
+        const url = `${WAQI_API}/map/bounds/?latlng=${INDIA_BOUNDS}&networks=all&token=${WAQI_TOKEN}`;
+        console.log(`[WAQI] Fetching stations in bounds: ${INDIA_BOUNDS}`);
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === 'ok' && Array.isArray(data.data)) {
+            console.log(`[WAQI] Found ${data.data.length} stations in India bounds`);
+
+            apiCache.set(cacheKey, { data: data.data, timestamp: Date.now() });
+            return data.data;
+        }
+
+        console.error('[WAQI] Invalid bounds response:', data);
+        return [];
+    } catch (error) {
+        console.error('[WAQI] Bounds fetch error:', error);
+        return [];
+    }
+}
+
 function convertWAQItoAQIData(waqi: WAQIResponse, cityName: string, healthConditions: HealthCondition[]): AQIData {
     const aqi = waqi.data.aqi;
     const colorClass = getAQIClass(aqi);
@@ -306,7 +342,7 @@ interface CPCBRecord {
     pollutant_avg?: string;
 }
 
-async function fetchCPCBData(city: string): Promise<{
+async function fetchCPCBData(city: string, targetStation?: string): Promise<{
     aqi: number;
     pm2_5: number | null;
     pm10: number | null;
@@ -341,13 +377,30 @@ async function fetchCPCBData(city: string): Promise<{
 
         console.log(`[CPCB] Found ${data.records.length} records`);
 
+        // Filter by station if provided
+        let records = data.records as CPCBRecord[];
+        if (targetStation) {
+            const normalizedTarget = targetStation.toLowerCase().trim();
+            const filtered = records.filter(r =>
+                r.station && r.station.toLowerCase().includes(normalizedTarget)
+            );
+
+            if (filtered.length > 0) {
+                console.log(`[CPCB] Filtered for station "${targetStation}": ${filtered.length} records`);
+                records = filtered;
+            } else {
+                console.log(`[CPCB] Station "${targetStation}" not found in ${city} records. Falling back.`);
+                return null;
+            }
+        }
+
         // Parse pollutants
         const pollutants: Record<string, number[]> = {
             pm25: [], pm10: [], no2: [], so2: [], co: [], o3: [],
         };
-        let stationName = city;
+        let stationName = records.length > 0 && records[0].station ? records[0].station : (targetStation || city);
 
-        for (const record of data.records as CPCBRecord[]) {
+        for (const record of records) {
             if (record.station) stationName = record.station;
 
             const id = (record.pollutant_id || '').toLowerCase();
@@ -570,15 +623,40 @@ export async function fetchCurrentAQI(
             ? { lat: cityData.lat, lon: cityData.lon }
             : null;
 
-    // ============ STRATEGY: CPCB First for India, WAQI as fallback ============
+    // ============ STRATEGY: WAQI First for Specific Stations, CPCB for City (India) ============
 
-    // For Indian locations, try CPCB first
+    // Priority 1: Specific Station via WAQI
+    // If we have a numeric UID (from Global Search) or Geo coordinates
+    const isUidStation = station?.id && /^\d+$/.test(station.id);
+
+    if (station && (coords || isUidStation)) {
+        console.log(`[API] Station selected - trying WAQI ${isUidStation ? '(UID)' : '(Geo)'} first...`);
+
+        let waqiStationData: WAQIResponse | null = null;
+        if (isUidStation) {
+            waqiStationData = await fetchWAQIData({ uid: station.id });
+        } else if (coords) {
+            waqiStationData = await fetchWAQIData(coords);
+        }
+
+        if (waqiStationData) {
+            console.log(`[API] ✅ WAQI Station Success - AQI: ${waqiStationData.data.aqi}`);
+            const aqiData = convertWAQItoAQIData(waqiStationData, city, healthConditions);
+            aqiData.current.station = station.name; // Keep our station name
+            apiCache.set(cacheKey, { data: aqiData, timestamp: Date.now() });
+            return aqiData;
+        }
+        console.log(`[API] WAQI Station failed - falling back to CPCB...`);
+    }
+
+    // Priority 2: CPCB (for Indian Locations ONLY)
     if (isIndianLocation(city)) {
         console.log(`[API] Indian city detected - trying CPCB first...`);
-        const cpcbData = await fetchCPCBData(city);
+        const cpcbData = await fetchCPCBData(city, station?.name);
 
         if (cpcbData && cpcbData.aqi > 0) {
             console.log(`[API] ✅ CPCB Success - AQI: ${cpcbData.aqi}`);
+            // ... (rest of CPCB logic) ...
             const { health, activities, personal_risk } = getPersonalizedRecommendations(cpcbData.aqi, healthConditions);
 
             const aqiData: AQIData = {
@@ -607,20 +685,28 @@ export async function fetchCurrentAQI(
         }
 
         console.log(`[API] CPCB failed/empty - falling back to WAQI...`);
+    } else {
+        console.log(`[API] Non-Indian/Global location detected: "${city}" - Defaults to WAQI`);
     }
 
-    // Try WAQI API (fallback for India, primary for international)
-    console.log(`[API] Trying WAQI...`);
+    // Priority 3: WAQI Generic City Search (Global & Indian Fallback)
+    console.log(`[API] Trying WAQI for city: "${city}"...`);
 
     let waqiData = await fetchWAQIData(city);
+
+    // If city search returned nothing, but we had coordinates (rare case for manual station selection), try coords
     if (!waqiData && coords) {
         waqiData = await fetchWAQIData(coords);
     }
 
     if (waqiData) {
-        console.log(`[API] ✅ WAQI Success - AQI: ${waqiData.data.aqi}`);
+        console.log(`[API] ✅ WAQI City Success - AQI: ${waqiData.data.aqi}`);
         const aqiData = convertWAQItoAQIData(waqiData, city, healthConditions);
         if (station) aqiData.current.station = station.name;
+
+        // Force source label for clarity
+        aqiData.current.aqi_source = isIndianLocation(city) ? 'WAQI India' : 'WAQI Global';
+
         apiCache.set(cacheKey, { data: aqiData, timestamp: Date.now() });
         return aqiData;
     }
@@ -634,7 +720,7 @@ export async function fetchCurrentAQI(
 // SEARCH
 // =============================================================================
 
-export async function searchCities(query: string): Promise<Array<{ name: string; aqi: number }>> {
+export async function searchCities(query: string): Promise<Array<{ name: string; aqi: number; uid?: number; station?: any }>> {
     if (query.length < 2) return [];
 
     try {
@@ -643,9 +729,11 @@ export async function searchCities(query: string): Promise<Array<{ name: string;
         const data = await response.json();
 
         if (data.status === 'ok' && data.data) {
-            return data.data.slice(0, 10).map((item: { station?: { name?: string }; aqi?: string }) => ({
+            return data.data.slice(0, 10).map((item: any) => ({
                 name: item.station?.name || 'Unknown',
                 aqi: parseInt(item.aqi || '0') || 0,
+                uid: item.uid,
+                station: item.station
             }));
         }
         return [];

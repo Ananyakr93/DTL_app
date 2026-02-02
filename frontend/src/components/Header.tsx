@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, MapPin, RefreshCw, Clock, ChevronDown, X, Navigation } from 'lucide-react';
 import { useStore } from '../store';
 import { searchLocations, getCityByName, type Station } from '../data/cities';
+
 import { formatTime, formatCountdown, debounce } from '../utils';
 
 interface HeaderProps {
@@ -10,11 +11,11 @@ interface HeaderProps {
 }
 
 export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
-    const { city, selectedStation, currentData, lastUpdate, refreshCountdown, settings } = useStore();
+    const { city, selectedStation, currentData, lastUpdate, refreshCountdown, settings, allStations } = useStore();
     const isDarkMode = settings.isDarkMode;
 
     const [searchValue, setSearchValue] = useState('');
-    const [suggestions, setSuggestions] = useState<Array<{ type: 'city' | 'station'; name: string; city?: string; state: string; id?: string }>>([]);
+    const [suggestions, setSuggestions] = useState<Array<{ type: 'city' | 'station'; name: string; city?: string; state: string; id?: string; stationData?: any }>>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [showStationDropdown, setShowStationDropdown] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -29,18 +30,41 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
 
     // Debounced search
     const debouncedSearch = useCallback(
-        debounce((query: string) => {
+        debounce(async (query: string) => {
             if (query.length >= 2) {
-                const results = searchLocations(query);
-                setSuggestions(results);
-                setShowSuggestions(results.length > 0);
+                const cityResults = searchLocations(query);
+
+                // Search in allStations (WAQI bounds data)
+                const stationResults = allStations
+                    .filter((s: any) => s.station?.name?.toLowerCase().includes(query.toLowerCase()))
+                    .map((s: any) => ({
+                        type: 'station' as const,
+                        name: s.station.name,
+                        city: s.station.name.split(',')[0], // Approximation
+                        state: 'India',
+                        id: String(s.uid),
+                        stationData: s
+                    }))
+                    .slice(0, 5);
+
+                // Merge: City results first, then unique stations (Local Only)
+                const seen = new Set(cityResults.map(r => r.name.toLowerCase()));
+
+                const uniqueStations = stationResults.filter(s => {
+                    if (seen.has(s.name.toLowerCase())) return false;
+                    seen.add(s.name.toLowerCase());
+                    return true;
+                });
+
+                setSuggestions([...cityResults, ...uniqueStations].slice(0, 15));
+                setShowSuggestions(true);
                 setHighlightedIndex(-1);
             } else {
                 setSuggestions([]);
                 setShowSuggestions(false);
             }
-        }, 200),
-        []
+        }, 300),
+        [allStations]
     );
 
     // Handle input change
@@ -53,10 +77,24 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
     // Handle suggestion select
     const handleSuggestionSelect = (suggestion: (typeof suggestions)[0]) => {
         if (suggestion.type === 'station') {
-            // Find the station object
-            const stationCity = getCityByName(suggestion.city || '');
-            const station = stationCity?.stations.find((s) => s.id === suggestion.id);
-            onSearch(suggestion.city || city, station);
+            if (suggestion.stationData) {
+                // If derived from WAQI allStations, construct a Station object
+                const s = suggestion.stationData;
+                const stationObj: Station = {
+                    id: String(s.uid),
+                    name: s.station.name,
+                    city: s.station.name.split(',')[0], // Approximation
+                    state: 'India', // Best effort
+                    lat: s.lat,
+                    lon: s.lon
+                };
+                onSearch(suggestion.city || city, stationObj);
+            } else {
+                // Fallback for existing station logic from cities.ts
+                const stationCity = getCityByName(suggestion.city || '');
+                const station = stationCity?.stations.find((s) => s.id === suggestion.id);
+                onSearch(suggestion.city || city, station);
+            }
         } else {
             onSearch(suggestion.name);
         }
@@ -117,8 +155,8 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
                             onFocus={() => searchValue.length >= 2 && setShowSuggestions(true)}
                             placeholder="Search city or station..."
                             className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 transition-all ${isDarkMode
-                                    ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 focus:border-brand-primary'
-                                    : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-brand-primary'
+                                ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 focus:border-brand-primary'
+                                : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-brand-primary'
                                 } focus:outline-none`}
                         />
                         {searchValue && (
@@ -144,10 +182,10 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
                                         key={`${suggestion.type}-${suggestion.name}-${index}`}
                                         onClick={() => handleSuggestionSelect(suggestion)}
                                         className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${index === highlightedIndex
-                                                ? 'bg-brand-primary text-brand-dark'
-                                                : isDarkMode
-                                                    ? 'hover:bg-slate-700 text-white'
-                                                    : 'hover:bg-gray-50 text-gray-900'
+                                            ? 'bg-brand-primary text-brand-dark'
+                                            : isDarkMode
+                                                ? 'hover:bg-slate-700 text-white'
+                                                : 'hover:bg-gray-50 text-gray-900'
                                             }`}
                                     >
                                         <MapPin className="w-4 h-4 flex-shrink-0" />
@@ -159,8 +197,8 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
                                             </p>
                                         </div>
                                         <span className={`text-xs px-2 py-0.5 rounded-full ${suggestion.type === 'station'
-                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
-                                                : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                                            : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
                                             }`}>
                                             {suggestion.type === 'station' ? 'Station' : 'City'}
                                         </span>
@@ -174,8 +212,8 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
                     <button
                         onClick={onDetectLocation}
                         className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-colors ${isDarkMode
-                                ? 'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
-                                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                            ? 'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
+                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                             }`}
                     >
                         <Navigation className="w-5 h-5" />
@@ -209,10 +247,10 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
                                         <button
                                             onClick={() => handleStationSelect(null)}
                                             className={`w-full px-4 py-2 text-left text-sm ${!selectedStation
-                                                    ? 'bg-brand-primary text-brand-dark font-medium'
-                                                    : isDarkMode
-                                                        ? 'hover:bg-slate-700 text-white'
-                                                        : 'hover:bg-gray-50 text-gray-900'
+                                                ? 'bg-brand-primary text-brand-dark font-medium'
+                                                : isDarkMode
+                                                    ? 'hover:bg-slate-700 text-white'
+                                                    : 'hover:bg-gray-50 text-gray-900'
                                                 }`}
                                         >
                                             All Stations
@@ -222,10 +260,10 @@ export default function Header({ onSearch, onDetectLocation }: HeaderProps) {
                                                 key={station.id}
                                                 onClick={() => handleStationSelect(station)}
                                                 className={`w-full px-4 py-2 text-left text-sm ${selectedStation?.id === station.id
-                                                        ? 'bg-brand-primary text-brand-dark font-medium'
-                                                        : isDarkMode
-                                                            ? 'hover:bg-slate-700 text-white'
-                                                            : 'hover:bg-gray-50 text-gray-900'
+                                                    ? 'bg-brand-primary text-brand-dark font-medium'
+                                                    : isDarkMode
+                                                        ? 'hover:bg-slate-700 text-white'
+                                                        : 'hover:bg-gray-50 text-gray-900'
                                                     }`}
                                             >
                                                 {station.name}

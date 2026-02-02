@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import { Map, Globe2, RefreshCw, Navigation, Locate, Info } from 'lucide-react';
 import { useStore } from '../store';
-import { fetchMultipleCityAQI } from '../api';
+import { fetchStationsInBounds } from '../api';
 import { INDIAN_CITIES } from '../data/cities';
-import { getAQIColor } from '../utils';
-import type { CityAQI } from '../types';
+import { getAQIColor, getAQIStatus, getAQIClass } from '../utils';
+
 import 'leaflet/dist/leaflet.css';
 
 const INDIA_CENTER: [number, number] = [22.5, 82.5];
@@ -27,39 +27,43 @@ function MapController({ selectedCity }: { selectedCity: string | null }) {
 }
 
 export default function HeatmapPage() {
-    const { city: currentCity, cityAQIData, setCityAQIData, settings, setCity, setActivePage } = useStore();
+    const { city: currentCity, allStations, setAllStations, settings, setCity, setActivePage } = useStore();
     const isDarkMode = settings.isDarkMode;
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastFetch, setLastFetch] = useState<Date | null>(null);
-    const [selectedCityData, setSelectedCityData] = useState<CityAQI | null>(null);
+    const [selectedStation, setSelectedStation] = useState<any | null>(null);
 
-    const loadCityAQI = useCallback(async () => {
+    const loadMapData = useCallback(async () => {
         if (isLoading) return;
 
         setIsLoading(true);
         setError(null);
 
         try {
-            console.log('Loading AQI data for', INDIAN_CITIES.length, 'cities...');
-            const data = await fetchMultipleCityAQI(INDIAN_CITIES);
-            setCityAQIData(data);
-            setLastFetch(new Date());
-            console.log('Loaded AQI data for', data.length, 'cities');
+            console.log('Loading full station data for India bounds...');
+            const data = await fetchStationsInBounds();
+            if (data.length > 0) {
+                setAllStations(data);
+                setLastFetch(new Date());
+                console.log('Loaded', data.length, 'stations');
+            } else {
+                setError('No station data found in bounds');
+            }
         } catch (err) {
-            console.error('Error fetching city AQI data:', err);
+            console.error('Error fetching station data:', err);
             setError('Failed to load map data. Please try again.');
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, setCityAQIData]);
+    }, [isLoading, setAllStations]);
 
     useEffect(() => {
-        if (cityAQIData.length === 0) {
-            loadCityAQI();
+        if (allStations.length === 0) {
+            loadMapData();
         }
-    }, [cityAQIData.length, loadCityAQI]);
+    }, [allStations.length, loadMapData]);
 
     const getMarkerRadius = (aqi: number): number => {
         if (aqi <= 50) return 10;
@@ -69,24 +73,25 @@ export default function HeatmapPage() {
         return 18;
     };
 
-    const handleCityClick = (cityData: CityAQI) => {
-        setSelectedCityData(cityData);
+    const handleStationClick = (station: any) => {
+        setSelectedStation(station);
     };
 
     const handleViewDashboard = (cityName: string) => {
-        setCity(cityName);
+        setCity(cityName); // Note: Should we set station too? For now, city is fine.
         setActivePage('dashboard');
     };
 
     // Stats
-    const avgAqi = cityAQIData.length > 0
-        ? Math.round(cityAQIData.reduce((sum, c) => sum + c.aqi, 0) / cityAQIData.length)
+    const validStations = allStations.filter(s => !isNaN(Number(s.aqi)));
+    const avgAqi = validStations.length > 0
+        ? Math.round(validStations.reduce((sum, s) => sum + Number(s.aqi), 0) / validStations.length)
         : 0;
-    const cleanestCity = cityAQIData.length > 0
-        ? cityAQIData.reduce((min, c) => c.aqi < min.aqi ? c : min, cityAQIData[0])
+    const cleanest = validStations.length > 0
+        ? validStations.reduce((min, s) => Number(s.aqi) < Number(min.aqi) ? s : min, validStations[0])
         : null;
-    const mostPollutedCity = cityAQIData.length > 0
-        ? cityAQIData.reduce((max, c) => c.aqi > max.aqi ? c : max, cityAQIData[0])
+    const mostPolluted = validStations.length > 0
+        ? validStations.reduce((max, s) => Number(s.aqi) > Number(max.aqi) ? s : max, validStations[0])
         : null;
 
     return (
@@ -99,7 +104,7 @@ export default function HeatmapPage() {
                         India AQI Heatmap
                     </h1>
                     <p className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Real-time air quality across {cityAQIData.length} cities • Click any city to view details
+                        Real-time air quality from {allStations.length} stations across India
                     </p>
                 </div>
 
@@ -110,7 +115,7 @@ export default function HeatmapPage() {
                         </span>
                     )}
                     <button
-                        onClick={loadCityAQI}
+                        onClick={loadMapData}
                         disabled={isLoading}
                         className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-brand-dark rounded-xl font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50"
                     >
@@ -134,24 +139,24 @@ export default function HeatmapPage() {
                     </div>
                 </div>
 
-                {cleanestCity && (
+                {cleanest && (
                     <div className={`p-5 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-white'} shadow-lg`}>
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
                                 <Navigation className="w-6 h-6 text-green-500" />
                             </div>
                             <div>
-                                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cleanest City</p>
-                                <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    {cleanestCity.name}
+                                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cleanest Location</p>
+                                <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} line-clamp-1`} title={cleanest?.station.name}>
+                                    {cleanest?.station.name}
                                 </p>
-                                <p className="text-sm text-green-500 font-medium">AQI: {cleanestCity.aqi}</p>
+                                <p className="text-sm text-green-500 font-medium">AQI: {cleanest?.aqi}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {mostPollutedCity && (
+                {mostPolluted && (
                     <div className={`p-5 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-white'} shadow-lg`}>
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
@@ -159,10 +164,10 @@ export default function HeatmapPage() {
                             </div>
                             <div>
                                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Most Polluted</p>
-                                <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    {mostPollutedCity.name}
+                                <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} line-clamp-1`} title={mostPolluted?.station.name}>
+                                    {mostPolluted?.station.name}
                                 </p>
-                                <p className="text-sm text-red-500 font-medium">AQI: {mostPollutedCity.aqi}</p>
+                                <p className="text-sm text-red-500 font-medium">AQI: {mostPolluted?.aqi}</p>
                             </div>
                         </div>
                     </div>
@@ -199,12 +204,12 @@ export default function HeatmapPage() {
 
                 {/* Map */}
                 <div className="h-[600px] relative">
-                    {isLoading && cityAQIData.length === 0 && (
+                    {isLoading && allStations.length === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-700 z-10">
                             <div className="flex flex-col items-center gap-3">
                                 <RefreshCw className="w-10 h-10 animate-spin text-brand-primary" />
                                 <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                                    Loading AQI data for {INDIAN_CITIES.length} cities...
+                                    Loading full station map for India...
                                 </span>
                             </div>
                         </div>
@@ -228,46 +233,54 @@ export default function HeatmapPage() {
 
                         <MapController selectedCity={currentCity} />
 
-                        {cityAQIData.map((cityData) => (
-                            <CircleMarker
-                                key={cityData.name}
-                                center={[cityData.lat, cityData.lon]}
-                                radius={getMarkerRadius(cityData.aqi)}
-                                pathOptions={{
-                                    fillColor: getAQIColor(cityData.color),
-                                    fillOpacity: 0.85,
-                                    color: currentCity === cityData.name ? '#fff' : getAQIColor(cityData.color),
-                                    weight: currentCity === cityData.name ? 3 : 1,
-                                }}
-                                eventHandlers={{
-                                    click: () => handleCityClick(cityData),
-                                }}
-                            >
-                                <Popup>
-                                    <div className="text-center min-w-[150px] p-2">
-                                        <p className="font-bold text-lg text-gray-900">{cityData.name}</p>
-                                        <p className="text-sm text-gray-500 mb-2">{cityData.state}</p>
-                                        <div className="my-3">
-                                            <span
-                                                className="text-4xl font-bold"
-                                                style={{ color: getAQIColor(cityData.color) }}
+                        {allStations.map((station) => {
+                            const aqi = Number(station.aqi);
+                            if (isNaN(aqi)) return null;
+                            const colorClass = getAQIClass(aqi);
+                            const status = getAQIStatus(aqi);
+                            const color = getAQIColor(colorClass);
+
+                            return (
+                                <CircleMarker
+                                    key={station.uid}
+                                    center={[station.lat, station.lon]}
+                                    radius={getMarkerRadius(aqi)}
+                                    pathOptions={{
+                                        fillColor: color,
+                                        fillOpacity: 0.8,
+                                        color: selectedStation?.uid === station.uid ? '#fff' : color,
+                                        weight: selectedStation?.uid === station.uid ? 3 : 1,
+                                    }}
+                                    eventHandlers={{
+                                        click: () => handleStationClick(station),
+                                    }}
+                                >
+                                    <Popup>
+                                        <div className="text-center min-w-[180px] p-2">
+                                            <p className="font-bold text-base text-gray-900 break-words">{station.station.name}</p>
+                                            <p className="text-xs text-gray-500 mb-2">Updated: {station.station.time}</p>
+                                            <div className="my-3">
+                                                <span
+                                                    className="text-4xl font-bold"
+                                                    style={{ color: color }}
+                                                >
+                                                    {station.aqi}
+                                                </span>
+                                                <p className="text-sm font-medium mt-1" style={{ color: color }}>
+                                                    {status}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleViewDashboard(station.station.name.split(',')[0])}
+                                                className="w-full mt-2 px-3 py-2 bg-brand-primary text-brand-dark text-xs font-bold uppercase rounded-lg hover:bg-opacity-80 transition-colors"
                                             >
-                                                {cityData.aqi}
-                                            </span>
-                                            <p className="text-sm font-medium mt-1" style={{ color: getAQIColor(cityData.color) }}>
-                                                {cityData.status}
-                                            </p>
+                                                View Detailed Analysis
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => handleViewDashboard(cityData.name)}
-                                            className="w-full mt-2 px-4 py-2 bg-brand-primary text-brand-dark text-sm font-medium rounded-lg hover:bg-opacity-80 transition-colors"
-                                        >
-                                            View Dashboard →
-                                        </button>
-                                    </div>
-                                </Popup>
-                            </CircleMarker>
-                        ))}
+                                    </Popup>
+                                </CircleMarker>
+                            );
+                        })}
                     </MapContainer>
                 </div>
 
@@ -276,51 +289,51 @@ export default function HeatmapPage() {
                     <div className="flex items-center gap-2 text-sm">
                         <Info className="w-4 h-4" />
                         <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                            Data sources: CPCB, WAQI • Click markers to view city details
+                            Data source: WAQI (Real-time)
                         </span>
                     </div>
                     <span className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                        {cityAQIData.length} cities monitored
+                        {validStations.length} stations monitored
                     </span>
                 </div>
             </div>
 
-            {/* Selected City Details */}
-            {selectedCityData && (
-                <div className={`p-6 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-white'} shadow-xl`}>
+            {/* Selected Station Details Panel */}
+            {selectedStation && (
+                <div className={`p-6 rounded-2xl ${isDarkMode ? 'bg-slate-800' : 'bg-white'} shadow-xl transition-all`}>
                     <div className="flex items-start justify-between">
-                        <div>
-                            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {selectedCityData.name}
+                        <div className="flex-1">
+                            <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} break-words`}>
+                                {selectedStation.station.name}
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {selectedCityData.state}
+                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                                {selectedStation.lat.toFixed(4)}, {selectedStation.lon.toFixed(4)}
                             </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right ml-4">
                             <p
                                 className="text-4xl font-bold"
-                                style={{ color: getAQIColor(selectedCityData.color) }}
+                                style={{ color: getAQIColor(getAQIClass(Number(selectedStation.aqi))) }}
                             >
-                                {selectedCityData.aqi}
+                                {selectedStation.aqi}
                             </p>
                             <p
                                 className="text-sm font-medium"
-                                style={{ color: getAQIColor(selectedCityData.color) }}
+                                style={{ color: getAQIColor(getAQIClass(Number(selectedStation.aqi))) }}
                             >
-                                {selectedCityData.status}
+                                {getAQIStatus(Number(selectedStation.aqi))}
                             </p>
                         </div>
                     </div>
                     <div className="mt-6 flex gap-4">
                         <button
-                            onClick={() => handleViewDashboard(selectedCityData.name)}
+                            onClick={() => handleViewDashboard(selectedStation.station.name.split(',')[0])}
                             className="flex-1 px-4 py-3 bg-brand-primary text-brand-dark font-medium rounded-xl hover:bg-opacity-90 transition-colors"
                         >
                             View Full Dashboard
                         </button>
                         <button
-                            onClick={() => setSelectedCityData(null)}
+                            onClick={() => setSelectedStation(null)}
                             className={`px-4 py-3 rounded-xl font-medium ${isDarkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                                 }`}
                         >

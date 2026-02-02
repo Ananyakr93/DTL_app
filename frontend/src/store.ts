@@ -12,6 +12,13 @@ import type {
 } from './types';
 import type { Station } from './data/cities';
 
+export interface ComparisonItem {
+    id: string;
+    name: string;
+    type: 'city' | 'station';
+    station?: Station;
+}
+
 interface AppState {
     // Location state
     city: string;
@@ -31,6 +38,10 @@ interface AppState {
     cityAQIData: CityAQI[];
     setCityAQIData: (data: CityAQI[]) => void;
 
+    // Full station list (WAQI Bounds)
+    allStations: any[]; // Using lax type for flexibility, ideally define strict type
+    setAllStations: (stations: any[]) => void;
+
     // Scenario for predictions
     scenario: Scenario;
     setScenario: (scenario: Scenario) => void;
@@ -42,6 +53,12 @@ interface AppState {
     setError: (error: string | null) => void;
     activePage: PageType;
     setActivePage: (page: PageType) => void;
+
+    // Comparison state
+    comparisonList: ComparisonItem[];
+    addToComparison: (item: ComparisonItem) => void;
+    removeFromComparison: (id: string) => void;
+    clearComparison: () => void;
 
     // Update timing
     lastUpdate: Date | null;
@@ -90,6 +107,9 @@ export const useStore = create<AppState>()(
             cityAQIData: [],
             setCityAQIData: (data) => set({ cityAQIData: data }),
 
+            allStations: [],
+            setAllStations: (stations) => set({ allStations: stations }),
+
             // Scenario
             scenario: 'normal',
             setScenario: (scenario) => set({ scenario }),
@@ -101,6 +121,18 @@ export const useStore = create<AppState>()(
             setError: (error) => set({ error }),
             activePage: 'dashboard',
             setActivePage: (page) => set({ activePage: page }),
+
+            // Comparison
+            comparisonList: [],
+            addToComparison: (item) => set((state) => {
+                if (state.comparisonList.some(i => i.id === item.id)) return state;
+                if (state.comparisonList.length >= 5) return state;
+                return { comparisonList: [...state.comparisonList, item] };
+            }),
+            removeFromComparison: (id) => set((state) => ({
+                comparisonList: state.comparisonList.filter(i => i.id !== id)
+            })),
+            clearComparison: () => set({ comparisonList: [] }),
 
             // Update timing
             lastUpdate: null,
@@ -149,6 +181,7 @@ export const useStore = create<AppState>()(
             partialize: (state) => ({
                 settings: state.settings,
                 city: state.city,
+                comparisonList: state.comparisonList, // Persist comparison list
             }),
         }
     )

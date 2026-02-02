@@ -1,4 +1,4 @@
-import { LayoutDashboard, Map, BarChart3, FileText, Settings, Moon, Sun, Leaf } from 'lucide-react';
+import { LayoutDashboard, Map, BarChart3, FileText, Settings, Moon, Sun, Leaf, Scale } from 'lucide-react';
 import { useStore } from '../store';
 import type { PageType } from '../types';
 
@@ -12,6 +12,7 @@ const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'heatmap', label: 'India Heatmap', icon: <Map className="w-5 h-5" /> },
     { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
+    { id: 'compare', label: 'Compare', icon: <Scale className="w-5 h-5" /> },
     { id: 'reports', label: 'Reports', icon: <FileText className="w-5 h-5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];
@@ -33,11 +34,11 @@ export default function Sidebar() {
             <div className="p-6 border-b border-inherit">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-primary to-green-500 flex items-center justify-center">
-                        <span className="text-2xl">🍃</span>
+                        <Leaf className="w-6 h-6 text-white" />
                     </div>
                     <div>
                         <h1 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            🍃 AeroClean
+                            AeroClean
                         </h1>
                         <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                             Air Quality Monitor

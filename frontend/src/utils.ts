@@ -1,4 +1,4 @@
-import type { AQIColorClass, HourlyPrediction, Scenario, ScenarioOption, HistoricalDataPoint } from './types';
+import type { AQIColorClass, HourlyPrediction, Scenario, ScenarioOption, HistoricalDataPoint, HealthCondition } from './types';
 
 // AQI Helper Functions
 export function getAQIClass(aqi: number): AQIColorClass {
@@ -265,7 +265,84 @@ export function exportToCSV(data: HistoricalDataPoint[], filename: string): void
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
-    document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+// =============================================================================
+// Health Analogies & Personalization
+// =============================================================================
+
+export function getPollutantAnalogy(pollutant: string, aqi: number): string | null {
+    if (aqi <= 100) return null; // No analogy for good/moderate air
+
+    const p = pollutant.toLowerCase().replace('.', '').replace('_', '');
+
+    // PM2.5 Analogies (Cigarettes)
+    // Rule of thumb: ~22ug/m3 PM2.5 ≈ 1 cigarette/day. 
+    // Very rough heuristic mapping AQI > 150 to cigs for impact.
+    if (p.includes('pm25')) {
+        if (aqi > 300) return "Equivalent to smoking ~10 cigarettes today";
+        if (aqi > 200) return "Equivalent to smoking ~4-5 cigarettes today";
+        if (aqi > 150) return "Equivalent to smoking ~1-2 cigarettes today";
+        return "Micro-particles can enter bloodstream";
+    }
+
+    if (p.includes('pm10')) {
+        return "Like inhaling dust from a construction site";
+    }
+
+    if (p.includes('no2')) {
+        return "Like breathing exhaust near a busy highway";
+    }
+
+    if (p.includes('o3') || p.includes('ozone')) {
+        return "Lung irritation similar to mild sunburn inside";
+    }
+
+    return null;
+}
+
+export function getPersonalizedAlert(aqi: number, conditions: HealthCondition[]): { message: string, icon: string } | null {
+    if (aqi <= 100) return null;
+
+    const hasCondition = (c: HealthCondition) => conditions.includes(c);
+
+    if (hasCondition('asthma') || hasCondition('respiratory')) {
+        return {
+            message: "High risk of wheezing/cough. Keep inhaler ready and wear N95 if outdoors.",
+            icon: "🫁"
+        };
+    }
+
+    if (hasCondition('heart_disease')) {
+        return {
+            message: "Increased strain on heart. Avoid strenuous activity outdoors.",
+            icon: "❤️"
+        };
+    }
+
+    if (hasCondition('children') || hasCondition('pregnant')) {
+        return {
+            message: "Sensitive lungs at risk. Limit outdoor playtime/exposure.",
+            icon: "👶"
+        };
+    }
+
+    if (hasCondition('elderly')) {
+        return {
+            message: "Immune system may be stressed. Stay indoors with air purification.",
+            icon: "👴"
+        };
+    }
+
+    // Default general warning if no specific condition matched but AQI is high
+    if (aqi > 150) {
+        return {
+            message: "Unhealthy for sensitive groups. Reduce prolonged outdoor exertion.",
+            icon: "⚠️"
+        };
+    }
+
+    return null;
 }

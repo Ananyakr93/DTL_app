@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useStore } from './store';
-import { fetchCurrentAQI, fetchPredictions, clearAPICache } from './api';
+import { fetchCurrentAQI, fetchPredictions, clearAPICache, fetchStationsInBounds } from './api';
 import { generateMockPredictions } from './utils';
 import type { Station } from './data/cities';
 
@@ -14,12 +14,15 @@ import PredictionChart from './components/PredictionChart';
 import ActivitySection from './components/ActivitySection';
 import HealthAlert from './components/HealthAlert';
 import LoadingState from './components/LoadingState';
+import StationList from './components/StationList';
+import FloatingHelp from './components/FloatingHelp';
 
 // Pages
 import HeatmapPage from './components/HeatmapPage';
 import AnalyticsPage from './components/AnalyticsPage';
 import ReportsPage from './components/ReportsPage';
 import SettingsPage from './components/SettingsPage';
+import ComparePage from './components/ComparePage';
 
 function App() {
     const {
@@ -39,7 +42,10 @@ function App() {
         refreshCountdown,
         setRefreshCountdown,
         settings,
+
         activePage,
+        allStations,
+        setAllStations,
     } = useStore();
 
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -103,6 +109,15 @@ function App() {
     // Initial load
     useEffect(() => {
         loadData(city, selectedStation || undefined, true);
+
+        // Background fetch of all stations for search/heatmap if not already loaded
+        if (allStations.length === 0) {
+            fetchStationsInBounds().then(stations => {
+                if (stations && stations.length > 0) {
+                    setAllStations(stations);
+                }
+            });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -177,6 +192,8 @@ function App() {
                 return <ReportsPage />;
             case 'settings':
                 return <SettingsPage />;
+            case 'compare':
+                return <ComparePage />;
             default:
                 return renderDashboard();
         }
@@ -216,6 +233,13 @@ function App() {
                     </div>
                 </div>
 
+                {/* Station List for City View */}
+                {!selectedStation && (
+                    <div className="animate-fade-in delay-200">
+                        <StationList city={city} />
+                    </div>
+                )}
+
                 {/* Health Recommendations */}
                 <HealthSection />
 
@@ -239,7 +263,7 @@ function App() {
                 )}
 
                 {/* Back button for non-dashboard pages (except heatmap which has its own header) */}
-                {activePage !== 'dashboard' && activePage !== 'heatmap' && (
+                {activePage !== 'dashboard' && activePage !== 'heatmap' && activePage !== 'compare' && (
                     <div className="mb-6">
                         <button
                             onClick={() => useStore.getState().setActivePage('dashboard')}
@@ -253,6 +277,8 @@ function App() {
 
                 {renderPageContent()}
             </main>
+
+            <FloatingHelp />
         </div>
     );
 }
