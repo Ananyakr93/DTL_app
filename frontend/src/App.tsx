@@ -1,4 +1,5 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { Menu, Leaf } from 'lucide-react';
 import { useStore } from './store';
 import { fetchCurrentAQI, fetchPredictions, clearAPICache, fetchStationsInBounds } from './api';
 import { generateMockPredictions } from './utils';
@@ -25,6 +26,8 @@ import SettingsPage from './components/SettingsPage';
 import ComparePage from './components/ComparePage';
 
 function App() {
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
     const {
         city,
         setCity,
@@ -254,28 +257,59 @@ function App() {
 
     return (
         <div className={`flex min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-gray-50'}`}>
-            <Sidebar />
+            {/* Mobile Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
 
-            <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-                {/* Header - only on dashboard */}
-                {activePage === 'dashboard' && (
-                    <Header onSearch={handleCitySearch} onDetectLocation={handleDetectLocation} />
-                )}
+            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-                {/* Back button for non-dashboard pages (except heatmap which has its own header) */}
-                {activePage !== 'dashboard' && activePage !== 'heatmap' && activePage !== 'compare' && (
-                    <div className="mb-6">
+            <main className="flex-1 flex flex-col h-screen overflow-hidden">
+                {/* Mobile Header */}
+                <div className={`lg:hidden flex items-center justify-between p-4 border-b ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'
+                    }`}>
+                    <div className="flex items-center gap-3">
                         <button
-                            onClick={() => useStore.getState().setActivePage('dashboard')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isDarkMode ? 'bg-slate-800 text-gray-300 hover:bg-slate-700' : 'bg-white text-gray-700 hover:bg-gray-100'
-                                } border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}
+                            onClick={() => setIsSidebarOpen(true)}
+                            className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-slate-800 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
                         >
-                            ← Back to Dashboard
+                            <Menu className="w-6 h-6" />
                         </button>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary to-green-500 flex items-center justify-center">
+                                <Leaf className="w-5 h-5 text-white" />
+                            </div>
+                            <span className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                AeroClean
+                            </span>
+                        </div>
                     </div>
-                )}
+                </div>
 
-                {renderPageContent()}
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+                    {/* Header - only on dashboard */}
+                    {activePage === 'dashboard' && (
+                        <Header onSearch={handleCitySearch} onDetectLocation={handleDetectLocation} />
+                    )}
+
+                    {/* Back button for non-dashboard pages (except heatmap which has its own header) */}
+                    {activePage !== 'dashboard' && activePage !== 'heatmap' && activePage !== 'compare' && (
+                        <div className="mb-6">
+                            <button
+                                onClick={() => useStore.getState().setActivePage('dashboard')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isDarkMode ? 'bg-slate-800 text-gray-300 hover:bg-slate-700' : 'bg-white text-gray-700 hover:bg-gray-100'
+                                    } border ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}
+                            >
+                                ← Back to Dashboard
+                            </button>
+                        </div>
+                    )}
+
+                    {renderPageContent()}
+                </div>
             </main>
 
             <FloatingHelp />

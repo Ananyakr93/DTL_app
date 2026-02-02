@@ -1,4 +1,4 @@
-import { LayoutDashboard, Map, BarChart3, FileText, Settings, Moon, Sun, Leaf, Scale } from 'lucide-react';
+import { LayoutDashboard, Map, BarChart3, FileText, Settings, Moon, Sun, Leaf, Scale, X } from 'lucide-react';
 import { useStore } from '../store';
 import type { PageType } from '../types';
 
@@ -17,7 +17,12 @@ const navItems: NavItem[] = [
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const { activePage, setActivePage, settings, updateSettings } = useStore();
     const isDarkMode = settings.isDarkMode;
 
@@ -27,11 +32,16 @@ export default function Sidebar() {
 
     return (
         <aside
-            className={`w-64 min-h-screen flex flex-col ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'
-                } border-r transition-colors duration-300`}
+            className={`
+                fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out
+                ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+                lg:translate-x-0 lg:static lg:shadow-none
+                flex flex-col border-r
+                ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}
+            `}
         >
             {/* Logo */}
-            <div className="p-6 border-b border-inherit">
+            <div className="p-6 border-b border-inherit flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-primary to-green-500 flex items-center justify-center">
                         <Leaf className="w-6 h-6 text-white" />
@@ -45,6 +55,13 @@ export default function Sidebar() {
                         </p>
                     </div>
                 </div>
+                {/* Mobile Close Button */}
+                <button
+                    onClick={onClose}
+                    className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500"
+                >
+                    <X className="w-6 h-6" />
+                </button>
             </div>
 
             {/* Navigation */}
@@ -54,7 +71,10 @@ export default function Sidebar() {
                     return (
                         <button
                             key={item.id}
-                            onClick={() => setActivePage(item.id)}
+                            onClick={() => {
+                                setActivePage(item.id);
+                                if (window.innerWidth < 1024) onClose(); // Close on mobile selection
+                            }}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${isActive
                                 ? 'bg-brand-primary text-brand-dark shadow-lg shadow-brand-primary/20'
                                 : isDarkMode
