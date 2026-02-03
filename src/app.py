@@ -464,9 +464,10 @@ def get_aqi_status(aqi):
 def get_aqi_color(aqi):
     """Get color class for AQI value"""
     if aqi <= 50: return "good"
-    elif aqi <= 100: return "moderate"
-    elif aqi <= 200: return "poor"
-    elif aqi <= 300: return "unhealthy"
+    elif aqi <= 100: return "satisfactory"
+    elif aqi <= 200: return "moderate"
+    elif aqi <= 300: return "poor"
+    elif aqi <= 400: return "very-poor"
     else: return "severe"
 
 def get_activity_recommendations(aqi):

@@ -43,8 +43,8 @@ export default function FloatingHelp() {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 flex items-center justify-center ${isOpen
-                        ? 'bg-red-500 hover:bg-red-600 rotate-90 text-white'
-                        : isDarkMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'
+                    ? 'bg-red-500 hover:bg-red-600 rotate-90 text-white'
+                    : isDarkMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'
                     } ${hasPulse && !isOpen ? 'animate-pulse' : ''}`}
                 aria-label="Help & Guide"
             >
@@ -56,8 +56,8 @@ export default function FloatingHelp() {
                 <div
                     ref={modalRef}
                     className={`fixed bottom-24 right-6 left-6 sm:left-auto sm:w-96 z-50 rounded-2xl shadow-2xl border overflow-hidden flex flex-col max-h-[75vh] animate-fade-in-up ${isDarkMode
-                            ? 'bg-slate-900 border-slate-700'
-                            : 'bg-white border-gray-200'
+                        ? 'bg-slate-900 border-slate-700'
+                        : 'bg-white border-gray-200'
                         }`}
                 >
                     {/* Header */}
@@ -98,24 +98,24 @@ export default function FloatingHelp() {
                                     <div><span className="font-bold text-green-600 dark:text-green-400">Good (0-50)</span>: Safe for everyone. Open your windows!</div>
                                 </div>
                                 <div className="flex items-start gap-3">
+                                    <span className="w-3 h-3 rounded-full bg-lime-500 mt-1 shrink-0"></span>
+                                    <div><span className="font-bold text-lime-600 dark:text-lime-400">Satisfactory (51-100)</span>: Minor breathing discomfort to sensitive people.</div>
+                                </div>
+                                <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-yellow-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-yellow-600 dark:text-yellow-400">Moderate (51-100)</span>: Acceptable, but sensitive people should be careful.</div>
+                                    <div><span className="font-bold text-yellow-600 dark:text-yellow-400">Moderate (101-200)</span>: Breathing discomfort with lung/heart disease.</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-orange-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-orange-600 dark:text-orange-400">Unhealthy for Sensitive (101-150)</span>: Children & elderly should limit outdoor play/walks.</div>
+                                    <div><span className="font-bold text-orange-600 dark:text-orange-400">Poor (201-300)</span>: Breathing discomfort on prolonged exposure.</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-red-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-red-600 dark:text-red-400">Unhealthy (151-200)</span>: Everyone may feel effects. Wear a mask outdoors.</div>
+                                    <div><span className="font-bold text-red-600 dark:text-red-400">Very Poor (301-400)</span>: Respiratory illness on prolonged exposure.</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-purple-600 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-purple-600 dark:text-purple-400">Very Unhealthy (201-300)</span>: Health alert. Avoid outdoor activities.</div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <span className="w-3 h-3 rounded-full bg-rose-900 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-rose-800 dark:text-rose-400">Hazardous (300+)</span>: Emergency conditions. Stay indoors.</div>
+                                    <div><span className="font-bold text-purple-600 dark:text-purple-400">Severe (400+)</span>: Affects healthy people; serious impact on existing diseases.</div>
                                 </div>
                             </div>
                         </div>
