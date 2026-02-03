@@ -1,3 +1,6 @@
+from gevent import monkey
+monkey.patch_all()
+
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 try:
@@ -89,7 +92,9 @@ ACTIVE_CITIES_LOCK = threading.Lock()
 
 # Disable WebSockets on Vercel (serverless doesn't support persistent connections)
 if SOCKETIO_AVAILABLE and os.environ.get('VERCEL') != '1':
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading', compress=True)
+    # Use gevent async mode for Gunicorn compatibility
+    async_mode = 'gevent' if os.environ.get('GUNICORN_VERSION') or os.environ.get('RAILWAY_ENVIRONMENT') else 'threading'
+    socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode, compress=True)
 else:
     socketio = None
 
@@ -153,12 +158,19 @@ CPCB_CITY_NAMES_LOWER = [
 
 # ===================== DATABASE SETUP =====================
 # On Vercel or Render, use /tmp directory (ephemeral storage)
+# On Vercel or Render, use /tmp directory (ephemeral storage)
 IS_VERCEL = os.environ.get('VERCEL') == '1'
 IS_RENDER = os.environ.get('RENDER') == 'true'
+IS_RAILWAY = os.environ.get('RAILWAY_ENVIRONMENT') is not None
 
-if IS_VERCEL or IS_RENDER:
+if IS_RAILWAY:
+    # Railway: Use the persistent volume mount path (usually /data)
+    DB_PATH = '/data/aeroclean.db'
+elif IS_VERCEL or IS_RENDER:
+    # Render/Vercel: Use ephemeral /tmp
     DB_PATH = '/tmp/aeroclean.db'
 else:
+    # Local: Use project data directory
     DB_PATH = os.path.join(PROJECT_ROOT, 'data', 'aeroclean.db')
 
 def init_db():

@@ -73,7 +73,7 @@ export default function InfoModal({ isOpen, onClose, isDarkMode }: InfoModalProp
                                 <span className="col-span-6 opacity-80">Respiratory illness on prolonged exposure.</span>
                             </div>
                             <div className="grid grid-cols-12 gap-2 items-center p-2 rounded bg-purple-600/10 border-l-4 border-purple-600">
-                                <span className="col-span-3 font-bold text-purple-600 dark:text-purple-400">401 - 500</span>
+                                <span className="col-span-3 font-bold text-purple-600 dark:text-purple-400">400+</span>
                                 <span className="col-span-3 font-bold">Severe</span>
                                 <span className="col-span-6 opacity-80">Affects healthy people; serious impact on existing diseases.</span>
                             </div>

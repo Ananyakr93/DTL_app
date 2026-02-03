@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "gunicorn --worker-class gevent --workers 1 --bind 0.0.0.0:$PORT src.app:app",
+    "numReplicas": 1
+  }
+}

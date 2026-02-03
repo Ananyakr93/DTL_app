@@ -1,114 +1,131 @@
-# AeroClean Dashboard
+# 🌬️ AeroClean Dashboard
+### *Advanced Air Quality Monitoring & 24-Hour Forecast Platform*
 
-A comprehensive air quality monitoring and prediction platform using advanced machine learning models (GRU + Attention) and a modern React frontend.
+AeroClean is a state-of-the-art air quality intelligence platform designed specifically for the Indian context. It combines official government data (CPCB) with advanced deep learning models (GRU + Attention) to provide real-time monitoring and highly accurate 24-hour AQI predictions.
 
-> **Project Status**: ✅ **Active & Stable** (v2.0 - February 2026)
+---
 
-## 🚀 Features
+## 🚀 Key Features
 
-- **Real-time AQI Monitoring**: Live air quality data from CPCB (India) and AQICN (Global) APIs.
-- **24-Hour Predictions**: Advanced GRU model with attention mechanism (MAE: 25.49, RMSE: 43.58).
-- **Health Insights Banner**: Always-visible, personalized health advice with granular AQI categories.
-- **Cigarette Equivalence**: Visualizes pollution impact in terms of cigarettes per day (Berkeley Earth research).
-- **Dynamic Risk Icons**: Interactive visualizations for lung and heart health risks.
-- **India-Centric Design**: Optimized search and heatmap strictly for Indian cities.
-- **Anomaly Detection**: Machine learning-based pollution spike detection.
+### 📊 Real-Time Monitoring
+- **Dual-Source Data**: Intelligence-driven switching between **CPCB (Official Indian Data)** and **AQICN (WAQI Fallback)**.
+- **Location-Aware**: Automatic detection of the nearest monitoring station with a 100km radius tolerance.
+- **Live Pollutant Breakdown**: Detailed metrics for PM2.5, PM10, NO2, SO2, CO, and O3.
 
-## 📁 Project Structure
+### 🔮 24-Hour Predictive Analytics
+- **Deep Learning Forecasts**: Powered by an advanced **GRU (Gated Recurrent Unit)** model with an **Attention Mechanism**.
+- **Scenario Simulation**: Test how air quality changes under "High Traffic", "Rain Event", or "Festival (Diwali)" scenarios.
+- **Uncertainty Mapping**: visual indicator of prediction confidence intervals.
 
-```
+### 🏥 Hyper-Personalized Health Insights
+- **Health Analogies**: Visualizes pollution impact through "Cigarette Equivalents" (Berkeley Earth Research).
+- **Personalized Logic**: Alerts tailored for specific health conditions (Asthma, Heart Disease, Children, Elderly).
+- **CPCB-Standard Guidance**: Automated activity recommendations (e.g., "Limit outdoor exercise") based on official Indian breakpoints.
+
+### 🗺️ Interactive Visualizations
+- **AQI Heatmap**: Leaflet-based map visualizing pollution levels across major Indian cities.
+- **Analytics Dashboard**: Historical trend analysis with 'Improving' vs 'Worsening' trend detection.
+- **Glassmorphism UI**: A premium, responsive interface with deep dark mode support and vibrant micro-animations.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend**: Python (Flask, Flask-SocketIO, Gunicorn, Gevent)
+- **Frontend**: React 18, TypeScript, TailwindCSS, Vite
+- **Machine Learning**: TensorFlow/Keras (GRU + Attention), Scikit-learn, Pandas, NumPy
+- **Database**: SQLite (Profile management & Historical logging)
+- **APIs**: CPCB (National Air Quality Index), AQICN, Open-Meteo (Geocoding)
+
+---
+
+## � Project Structure
+
+```text
 DTL/
-├── src/                    # Flask Backend
-│   └── app.py              # Main Application Entry
-├── frontend/               # React Frontend (Vite)
-├── models/                 # ML Models (.keras .pkl)
-├── data/                   # Data Storage
-└── requirements.txt        # Python Dependencies
+├── src/                    # Flask Backend Application
+│   ├── app.py              # Main Entry Point & API Logic
+│   └── start_public.py     # Public tunnel starter
+├── frontend/               # React Frontend (Vite + TS)
+│   ├── src/components/     # UI Components (Map, Analytics, Modals)
+│   └── src/utils.ts        # Common logic & CPCB formulas
+├── models/                 # Pre-trained ML Models (.keras & .pkl)
+├── data/                   # Historical datasets & SQLite DB
+├── scripts/                # Utility scripts for data/cities
+└── static/                 # Production-build Frontend Assets
 ```
 
-## 🛠️ Execution Guide
+---
 
-Follow these steps to set up and run the project strictly.
+## 🏁 Installation & Execution
 
-### Prerequisites
-- **Python 3.10+**
-- **Node.js 18+** (for frontend)
+### 1. Prerequisites
+- **Python 3.10.x**
+- **Node.js 18+**
 
-### Installation
-
-#### 1. Backend Setup
-Open a terminal in the root `DTL` directory:
-
+### 2. Basic Setup (Local)
 ```bash
-# Create virtual environment
-python -m venv venv
+# Clone the repository and enter directory
+cd DTL
 
-# Activate virtual environment
-# Windows (PowerShell):
-venv\Scripts\Activate.ps1
-# Mac/Linux:
-source venv/bin/activate
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # venv\Scripts\activate on Windows
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-#### 2. Frontend Setup
-Open a new terminal or navigate to the frontend folder:
-
+### 3. Integrated Production Mode
+For the best experience, build the frontend and serve it via Flask:
 ```bash
+# 1. Build Frontend
 cd frontend
 npm install
+npm run build
+cd ..
+
+# 2. Sync Build Assets (Windows)
+cp frontend/dist/index.html templates/index.html
+cp -r frontend/dist/assets/* static/assets/
+
+# 3. Start Backend
+cd src
+python app.py
 ```
+App will be live at: `http://localhost:5000`
 
 ---
 
-### Running the Project
+## ☁️ Deployment (Railway / Render)
 
-You can run the project in **Development Mode** (hot-reloading) or **Production Mode** (integrated).
+This project is pre-configured for **Railway** deployment using the `railway.json` and a specific Production Entry Point.
 
-#### Option A: Development Mode (Recommended for Editing)
-Run backend and frontend in separate terminals.
+1.  **Repository**: Connect your GitHub repo to Railway.
+2.  **Environment Variables**:
+    - `AQICN_TOKEN`: Your API token.
+    - `CPCB_API_KEY`: Your official CPCB key.
+    - `RAILWAY_ENVIRONMENT`: Set to `production`.
+3.  **Start Command**: `gunicorn --worker-class gevent --workers 1 --bind 0.0.0.0:$PORT src.app:app`
+4.  **Storage**: Create a Volume and mount it to `/data` for SQLite persistence.
 
-**Terminal 1 (Backend - Flask):**
-```bash
-# Ensure venv is active
-cd src
-python app.py
-```
-*Backend runs on: http://127.0.0.1:5000*
+---
 
-**Terminal 2 (Frontend - React/Vite):**
-```bash
-cd frontend
-npm run dev
-```
-*Frontend runs on: http://localhost:5173 (or port shown in terminal)*
+## 📈 AQI Standard Coverage
+AeroClean strictly follows the **Indian CPCB National AQI (NAQI)** standards:
 
-#### Option B: Production Mode (Integrated)
-Build the frontend and serve it purely via Flask.
+| AQI Range | Category | Color | Impact |
+|:---|:---|:---|:---|
+| 0 - 50 | Good | 🟢 Green | Minimal Impact |
+| 51 - 100 | Satisfactory | 🟢 Lime | Minor breathing discomfort to sensitive people |
+| 101 - 200| Moderate | 🟡 Yellow | Breathing discomfort with lung/heart disease |
+| 201 - 300| Poor | 🟠 Orange | Breathing discomfort on prolonged exposure |
+| 301 - 400| Very Poor | 🔴 Red | Respiratory illness on prolonged exposure |
+| 400+ | Severe | 🟣 Purple | Affects healthy people; serious impact on existing diseases |
 
-**1. Build the Frontend:**
-```bash
-cd frontend
-npm run build
-```
+---
 
-**2. Deploy Artifacts (Windows PowerShell):**
-Copy the built React files to Flask's template/static directories.
-
-```powershell
-# From DTL root directory:
-Copy-Item frontend\dist\index.html -Destination templates\index.html -Force
-Copy-Item -Recurse -Force frontend\dist\assets static\
-```
-
-**3. Run the Server:**
-```bash
-cd src
-python app.py
-```
-Access the full app at: **http://127.0.0.1:5000**
-
-## 📄 License
-*Commercial / Proprietary - All Rights Reserved*
+## 📄 License & Attribution
+- **Data Source**: CPCB (Central Pollution Control Board, India).
+- **Models**: Built by the AeroClean Research Team using Berkeley Earth health analogies.
+- **License**: Proprietary - All Rights Reserved.
