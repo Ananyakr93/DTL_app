@@ -95,27 +95,27 @@ export default function FloatingHelp() {
                             <div className="space-y-2 text-xs">
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-green-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-green-600 dark:text-green-400">Good (0-50)</span>: Safe for everyone. Open your windows!</div>
+                                    <div><span className="font-bold text-green-600 dark:text-green-400">Good (0-50)</span>: Minimal Impact</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-lime-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-lime-600 dark:text-lime-400">Satisfactory (51-100)</span>: Minor breathing discomfort to sensitive people.</div>
+                                    <div><span className="font-bold text-lime-600 dark:text-lime-400">Satisfactory (51-100)</span>: Minor breathing discomfort to sensitive people</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-yellow-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-yellow-600 dark:text-yellow-400">Moderate (101-200)</span>: Breathing discomfort with lung/heart disease.</div>
+                                    <div><span className="font-bold text-yellow-600 dark:text-yellow-400">Moderate (101-200)</span>: Breathing discomfort with lung/heart disease</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-orange-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-orange-600 dark:text-orange-400">Poor (201-300)</span>: Breathing discomfort on prolonged exposure.</div>
+                                    <div><span className="font-bold text-orange-600 dark:text-orange-400">Poor (201-300)</span>: Breathing discomfort on prolonged exposure</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-red-500 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-red-600 dark:text-red-400">Very Poor (301-400)</span>: Respiratory illness on prolonged exposure.</div>
+                                    <div><span className="font-bold text-red-600 dark:text-red-400">Very Poor (301-400)</span>: Respiratory illness on prolonged exposure</div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <span className="w-3 h-3 rounded-full bg-purple-600 mt-1 shrink-0"></span>
-                                    <div><span className="font-bold text-purple-600 dark:text-purple-400">Severe (400+)</span>: Affects healthy people; serious impact on existing diseases.</div>
+                                    <div><span className="font-bold text-purple-600 dark:text-purple-400">Severe (400+)</span>: Affects healthy people; serious impact on existing diseases</div>
                                 </div>
                             </div>
                         </div>
